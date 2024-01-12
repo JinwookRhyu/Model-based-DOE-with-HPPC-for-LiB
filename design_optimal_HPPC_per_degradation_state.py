@@ -499,8 +499,8 @@ results={}
 ii = 0
 
 for mm in range(100):
-    np.random.seed(mm)
-    deg_params = deg_params_lower + np.multiply((deg_params_upper - deg_params_lower), np.random.uniform(0, 1, 5))
+    rng = np.random.RandomState(mm)
+    deg_params = deg_params_lower + np.multiply((deg_params_upper - deg_params_lower), rng.uniform(0, 1, 5))
     deg_params = np.round(deg_params * 1000) / 1000
 
     R_f_c = deg_params[0]
@@ -581,7 +581,7 @@ for mm in range(100):
 
             algo = algorithm(ihs(20000))
             algo.set_verbosity(2000)
-            pop = pg.population(prob=uncertainty_function(5), size=5, seed=42)
+            pop = pg.population(prob=uncertainty_function(N), size=5, seed=42)
             pop.problem.c_tol = [0]
             pop = algo.evolve(pop)
 
