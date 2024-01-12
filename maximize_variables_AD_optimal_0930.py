@@ -3,17 +3,19 @@ import matplotlib.pyplot as plt
 from math import ceil, floor, pow
 from scipy import constants
 from scipy.special import erf
-from scipy.optimize import minimize
+from shgo import shgo
 from scipy import optimize
 from itertools import product
 from scipy.optimize import fsolve
 from datetime import datetime
 import time
+import pygmo as pg
+from pygmo import *
 
 
 sig_digits = 4
 V_limit = 0.050 # Lower limit for delta_V in [V]
-I_err = 0.01 # Measurement error of current in [A]
+I_err = 0.0001 # Measurement error of current in [A]
 #TODO: Check I_err value of the experimental equipment [A/m^2]
 #TODO: Check with Debbie on err_y expression... R_value has [A/m^2]. Should I_err also have [A/m^2]?
 
@@ -83,10 +85,9 @@ def dideta(c, mures, params, mu_c):
     #   print("eta", eta, etaf)
     match params["rxn_method"]:
         case "BV":
-            alpha = 0.5
             # it's actually dhdeta for BV, too laz to write anotuerh f(x)
             out = params["k0"] * (1 - c) ** 0.5 * c ** 0.5 * (
-                        -alpha * np.exp(-alpha * eta) - (1 - alpha) * np.exp((1 - alpha) * eta))
+                        -0.5 * np.exp(-0.5 * eta) - (1 - 0.5) * np.exp((1 - 0.5) * eta))
         #   %temporary
         case "CIET":
             out = params["k0"] * (1 - c) * (
@@ -134,7 +135,7 @@ def W_obj(phi_offset_c, c_c, c_a, phi, params_c, params_a, c_lyte):
     
 
 def dlnadlnc(c_lyte):
-    """Returns thermodynamic factor"""    
+    """Returns thermodynamic factor"""
     return 601/620 - 24 / 31 * 0.5 * c_lyte ** (0.5) + 100164 / 96875 * 1.5 * c_lyte ** (1.5)
 
 
@@ -312,6 +313,25 @@ def Round_off(N, n):
     A = np.multiply(sgn, np.divide(np.round(A), 10 ** d))
     return A
 
+def delPhi(deg_params, c_c, c_a, V_c, V_a, params_c, params_a, icellbar):
+    """solves overall W from the linear weight equation"""
+    # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
+    """Return delta Phi correction (Eq. 13) of HPPC paper to shift both anode and cathode potentials. we need to take
+    the average of dPhi over the degradation range, which means the average over Whats for cathode and anode"""
+    R_f_c = deg_params[:, 0]
+    c_tilde_c = deg_params[:, 1]
+    R_f_a = deg_params[:, 2]
+    c_tilde_a = deg_params[:, 3]
+    c_lyte = deg_params[:, 4]
+    W_c_hat = W_hat(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
+    W_a_hat = W_hat(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
+    # we should have different mures
+    dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
+    f_c_a = params_c["f"] / params_a["f"]
+    # set initial icell with no degradation
+    dPhi = (W_c_hat - W_a_hat) / (params_a["f"]*dideta(c_a, V_a, params_a, Tesla_graphite) + params_c["f"]*dideta(c_c, V_c, params_c, Tesla_NCA_Si)) * icellbar
+    return dPhi
+
 
 # now i have to write a dynmaic programming htingy :/
 
@@ -322,55 +342,61 @@ def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe):
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
     c_range = 0.85 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.85)
-    c_range = np.repeat(c_range, 2)
+    c_range = np.round(c_range * 1000) / 1000
+
     # mu_range = get_muR_from_OCV(opt_params[N:], 0)
-    pulse_range = opt_params[-2*N:]
-    if any(np.abs(get_OCV_from_muR(pulse_range, 0)) < V_limit):
-        phi = 1e50
-    else:
-        # this is only the pulse value. we should do OCV + pulse value
-        c_c = c_range
-        c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
-        # first, solve for the V_offsets
-        # all the V's are actually phis
-        # get the voltage pulse values
-        voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
-        # solve for the initial voltage pulses
-        mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, deg_params[:, [4]][0][0])
-        mu_range_a = mu_range_c + voltage_range
-        # using the current constraint equations, solve for both cathode and anode
-        # how do we know how much degradation is happening??? help.
-        # stack degradatio parameters so that we have a 5*1*1 matrix, where each set only has one degradation parameter
-        S = dWdtheta(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)
-        #print("S", S)
-        # sigma_y should scale iwth the inverse of the current magnitude
-        W_range = W(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)[0]
-        err_y = I_err * np.abs(np.divide((1 - W_range), R_value))
-        #rescale_current = R_value / np.max(R_value)
-        #sigma_y_inv = np.diag(rescale_current ** 2)
-        sigma_y_inv = np.diag(err_y ** (-2))
-        sigma_inv = np.dot(np.dot(Round_off(S, sig_digits), Round_off(sigma_y_inv, sig_digits)), Round_off(S, sig_digits).T)
-        # check if determinant is zero
-        if np.linalg.det(sigma_inv) != 0:
+    pulse_range = opt_params[-N:]
+
+    c_c = c_range
+    c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
+
+    # first, solve for the V_offsets
+    # all the V's are actually phis
+    # get the voltage pulse values
+    voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
+    # solve for the initial voltage pulses
+    mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1)  # No degradation
+    mu_range_a = mu_range_c + voltage_range
+    # correct for voltage shift of mu_range_c and mu_range_a each with the deltaphi correction in Eq. 13 of hppc paper 1
+    dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
+    mu_range_c = mu_range_c + dPhi
+    mu_range_a = mu_range_a + dPhi
+    # using the current constraint equations, solve for both cathode and anode
+    # how do we know how much degradation is happening??? help.
+    # stack degradatio parameters so that we have a 5*1*1 matrix, where each set only has one degradation parameter
+    # S = dWdtheta(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)
+    S = dWdtheta(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)
+    # sigma_y should scale iwth the inverse of the current magnitude
+    W_range = W(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)[0]
+    err_y = np.abs(np.divide((1 - W_range), R_value))
+    # rescale_current = R_value / np.max(R_value)
+    # sigma_y_inv = np.diag(rescale_current ** 2)
+    sigma_y_inv = np.diag(err_y ** (-2))
+    sigma_inv = np.dot(np.dot(S, sigma_y_inv), S.T)
+
+    # check if determinant is zero
+    if np.linalg.det(sigma_inv) != 0:
+        # sigma = np.linalg.inv(sigma_inv)
+        # sigma = np.linalg.inv(np.dot(S, S.T))
+
+        if tpe == "D":
+            phi_ED = 1 / np.linalg.det(sigma_inv)
+        elif tpe == "A":
             sigma = np.linalg.inv(sigma_inv)
-            # sigma = np.linalg.inv(np.dot(S, S.T))
+            phi_ED = np.trace(sigma) / len(deg_params)
+        elif tpe == "E":
+            sigma = np.linalg.inv(sigma_inv)
+            phi_ED = np.max(np.linalg.eigvals(sigma))
+        if np.any(np.diag(sigma_inv) < 0):
+            phi_ED = np.exp(100)
+    else:
+        phi_ED = np.exp(100)
+    if phi_ED <= 0:
+        phi_ED = np.exp(100)
+    phi_ED = np.log(phi_ED)
+    print("Pulse at c = " + str(c_range) + " with eta = " + str(pulse_range) + " resulted det = " + str(phi_ED))
 
-            if tpe == "D":
-                phi = (np.linalg.det(sigma))
-            elif tpe == "A":
-                phi = np.trace(sigma) / len(deg_params)
-            elif tpe == "E":
-                phi = np.max(np.linalg.eigvals(sigma))
-            if np.any(np.diag(sigma) < 0):
-                phi = 1e50
-            print(np.sqrt(np.diag(sigma)))
-        else:
-            phi = 1e50
-        phi = np.log(phi)
-
-    print("Pulse at c = " + str(c_range) + " with eta = " + str(pulse_range) + " resulted ln(phi) = " + str(phi))
-
-    return phi
+    return phi_ED
 
 
 def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
@@ -380,9 +406,9 @@ def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
     c_range = 0.85 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.85)
-    c_range = np.repeat(c_range, 2)
+    c_range = np.round(c_range * 1000) / 1000
     # mu_range = get_muR_from_OCV(opt_params[N:], 0)
-    pulse_range = opt_params[-2*N:]
+    pulse_range = opt_params[-N:]
     # this is only the pulse value. we should do OCV + pulse value
     c_c = c_range
     c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
@@ -391,8 +417,11 @@ def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
     # get the voltage pulse values
     voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
     # solve for the initial voltage pulses
-    mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, deg_params[:, [4]][0][0])
+    mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1)
     mu_range_a = mu_range_c + voltage_range
+    dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
+    mu_range_c = mu_range_c + dPhi
+    mu_range_a = mu_range_a + dPhi
     # using the current constraint equations, solve for both cathode and anode
     # how do we know how much degradation is happening??? help.
     # stack degradatio parameters so that we have a 5*1*1 matrix, where each set only has one degradation parameter
@@ -458,12 +487,11 @@ muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
 # out = optimization_protocol(N, ref_params, params_c, params_a, tpe)
 
 # print("Optimum Parameters: c: ", out[:N], "; V: ", get_OCV_from_muR(out[N:], 0), "; value: ", optimize_function(out, N, ref_params, params_c, params_a, tpe))
-
-
+N=5
 
 #np.random.seed(0)
 import glob, os
-os.chdir("C:/Users/Jinwook/PyCharm_projects/DOE/error_bound_optimal_output_D_N5/0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0")
+os.chdir("/home/jrhyu/PycharmProjects/DOE/error_bound_optimal_output_D_N5/0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0")
 for file in glob.glob("*.txt"):
     if "error_bound_CIET_D_50mV" in file:
         items = file.split('_')
@@ -477,102 +505,99 @@ for file in glob.glob("*.txt"):
         deg_params = np.array([R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte])
         deg_params = np.reshape(deg_params, (1, 5))
         deg_params = np.round(deg_params * 1000) / 1000
-        Nrange = np.arange(3, 4)
+        Nrange = np.arange(5, 6)
         str_deg_params = str(deg_params[0][0]) + "_" + str(deg_params[0][1]) + "_" + str(deg_params[0][2]) + "_" + str(deg_params[0][3]) + "_" + str(deg_params[0][4])
         print(str_deg_params)
         #if mm >= 76:
-        error_save = np.zeros((len(Nrange), 5))
-        optimization_save = np.ones((len(Nrange), 3*Nrange[-1]))*np.nan
 
         for rxn_method in ["CIET"]:
             for tpe in ["D"]:
 
                 # input parameters for electrodes
-                params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
+                params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
                     'muR_ref': muR_ref_c}
-                params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+                params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                     'mu': Tesla_graphite,
                     'muR_ref': muR_ref_a}
 
-                for i in range(len(Nrange)):
-                    # optimal
-                    N = Nrange[i]
-                    # we wnat N_pulses
-                    # generate initial condition from "best guess"
-                    # initial_condition
-                    mu_guess = get_muR_from_OCV(0.01 * np.ones(2*N), 0)
-                    x0 = np.concatenate((0.5 * np.ones([N+1]), mu_guess))  # initial_condition
-                    # set bounds
-                    l = (0.0001, 1)  # for SOC
-                    m = (get_muR_from_OCV(0.2, 0), get_muR_from_OCV(-0.2, 0))  # for pulse sizes
-                    bnds = (l,) * (N+1) + (m,) * (2*N)
-                    #  opt = minimize(optimize_function, x0, (N, ref_params, deg_params, params_c, params_a), bounds = bnds)
-                    # use a global optimization algorithm
-                    opt = optimize.dual_annealing(optimize_function, bnds, args=(N, deg_params, params_c, params_a, tpe), seed=0)
-                    out = opt.x
-                    c_range = 0.85 + np.cumsum(out[:N]) / np.sum(out[:N+1]) * (0.4 - 0.85)
-                    optimization_save[i, :N] = c_range
-                    optimization_save[i, Nrange[-1]:Nrange[-1] + 2*N] = get_OCV_from_muR(out[-2*N:], 0)
-                    print("N: ", N, "   Optimum Parameters: c: ", c_range, "; V: ", get_OCV_from_muR(out[-2*N:], 0), "; value: ", optimize_function(out, N, deg_params, params_c, params_a, tpe))
-                    print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe))
-                    error_save[i, :] = bound_error(out, N, deg_params, params_c, params_a, tpe)
 
-                np.savetxt("C:/Users/Jinwook/PyCharm_projects/DOE/error_bound_optimal_output_D_N3/optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", np.concatenate((Nrange.reshape(-1,1),optimization_save),axis = 1))
-                np.savetxt("C:/Users/Jinwook/PyCharm_projects/DOE/error_bound_optimal_output_D_N3/error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", np.concatenate((Nrange.reshape(-1,1),error_save),axis = 1))
+                class uncertainty_function:
+                    def __init__(self, N):
+                        self.N = N
+                        self.dim = 2 * N + 1
 
 
+                    def fitness(self, x):
+                        N = self.N
+                        c_range = 0.85 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.4 - 0.85)
+                        c_range = np.round(c_range * 1000) / 1000
+                        c_c = c_range
 
-# Validation: how well does the selected N pulses estimate degradation parameters?
-# Reverse engineering – estimate deg_params from W
+                        pulse_range = x[-N:]
 
-def W_1D(deg_params, c_c, c_a, V_c, V_a, params_c, params_a):
-    """solves overall W from the linear weight equation. Same as W but just that deg_params is 1-D array in order to use fsolve"""
-    # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-    R_f_c = deg_params[0]
-    c_tilde_c = deg_params[1]
-    R_f_a = deg_params[2]
-    c_tilde_a = deg_params[3]
-    c_lyte = deg_params[4]
-    W_c_hat = W_hat(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
-    W_a_hat = W_hat(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
-    # we should have different mures
-    dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
-    f_c_a = params_c["f"] / params_a["f"]
-    W = (W_c_hat + W_a_hat * f_c_a * dideta_c_a) / (1 + f_c_a * dideta_c_a)
-    W[np.isnan(W)] = 1e8
-    return W
+                        obj = optimize_function(x, N, deg_params, params_c, params_a, tpe)
+                        ci1 = N - np.sum(np.abs(get_OCV_from_muR(pulse_range, 0)) > V_limit)
+                        return [obj, ci1]
 
-def deg_params_obj(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, W_range):
-    """Objective function to estimate degradation parameters"""
-    W_est = W_1D(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)[0]
-    return W_est - W_range
+                    def get_bounds(self):
+                        N = self.N
+                        return ([0.0001] * (N + 1) + [get_muR_from_OCV(0.2, 0)] * N,
+                                [1] * (N + 1) + [get_muR_from_OCV(-0.2, 0)] * N)
 
-def deg_params_estimation(c_range, pulse_range):
-    """Estimate degradation parameters """
-    # this is only the pulse value. we should do OCV + pulse value
-    c_c = c_range
-    c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
-    # first, solve for the V_offsets
-    # all the V's are actually phis
-    # get the voltage pulse values
-    voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
-    # solve for the initial voltage pulses
-    mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1)
-    mu_range_a = mu_range_c + voltage_range
-    W_range = W(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)[0]
-    x0 = [1, 0.99, 1, 0.99, 0.99]
-    for i in range(5, len(c_range)):
-        x0.append(0)
-    deg_params_est = fsolve(deg_params_obj, x0, args=(c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, W_range))
-    return deg_params_est[:5]
+                    def get_nic(self):
+                        return 1
 
-#print("True values for degradation parameters = " + str(deg_params))
+                    def get_nec(self):
+                        return 0
 
-'''
-for k in range(len(Nrange)):
-    N = Nrange[k]
-    c_range_optimal = optimization_save[k, :N]
-    pulse_range_optimal = optimization_save[k, Nrange[-1]:Nrange[-1]+N]
-    deg_params_est_optimal = deg_params_estimation(c_range_optimal, pulse_range_optimal)
-    print("Degradation parameters estimated by selected pulses = " + str(deg_params_est_optimal))
-'''
+                    def gradient(self, x):
+                        return pg.estimate_gradient_h(lambda x: self.fitness(x), x)
+
+                    def get_name(self):
+                        return "Uncertainty Function"
+
+                    def get_extra_info(self):
+                        return "\tDimensions: " + str(self.dim)
+
+
+
+                # saves SOC and voltage values for each pulse
+                optimization_save = np.zeros((1, 2 * N)) * np.nan
+                # saves rest time in between pulses
+
+
+                algo = algorithm(ihs(20000))
+                algo.set_verbosity(2000)
+                pop = pg.population(prob=uncertainty_function(5), size=5, seed=42)
+                pop.problem.c_tol = [0]
+                pop = algo.evolve(pop)
+
+                opt_result = np.concatenate((pop.champion_f, pop.champion_x))
+                out = pop.champion_x
+                c_range = 0.85 + np.cumsum(out[:N]) / np.sum(out[:N + 1]) * (0.4 - 0.85)
+                c_range = np.round(c_range * 1000) / 1000
+                optimization_save[0, :N] = c_range
+                optimization_save[0, N:2 * N] = get_OCV_from_muR(out[-N:], 0)
+
+                print("N: ", N, "   Optimum Parameters: c: ", c_range, "; V: ", get_OCV_from_muR(out[-N:], 0),
+                      "; value: ",
+                      optimize_function(out, N, deg_params, params_c, params_a, tpe))
+                print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe))
+                error_save = bound_error(out, N, deg_params, params_c, params_a, tpe)
+                J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe)
+                c_c = c_range
+                c_c_t = np.concatenate((np.array([0.85]), c_range))
+                c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
+                c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
+
+                print("log(J1) = ", J1)
+                pareto_save = np.array([J1])
+
+
+                np.savetxt("/home/jrhyu/PycharmProjects/DOE/error_bound_optimal_output_D_N5_similar/optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(
+                    int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", optimization_save)
+                np.savetxt("/home/jrhyu/PycharmProjects/DOE/error_bound_optimal_output_D_N5_similar/error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(
+                    int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", error_save)
+                np.savetxt(
+                    "/home/jrhyu/PycharmProjects/DOE/error_bound_optimal_output_D_N5_similar/J1_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(
+                        str_deg_params) + ".txt", pareto_save)

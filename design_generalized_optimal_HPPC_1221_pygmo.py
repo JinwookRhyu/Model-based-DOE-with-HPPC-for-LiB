@@ -9,7 +9,8 @@ from itertools import product
 from scipy.optimize import fsolve
 from datetime import datetime
 import time
-#import pygmo as pg
+import pygmo as pg
+from pygmo import *
 
 
 R_f_c_range = np.array([0, 10]) # Range for R_f_c (lb, ub)
@@ -20,18 +21,17 @@ c_lyte_range = np.array([0.7, 1]) # Range for c_lyte (lb, ub)
 
 CC = 0.5 # C-rate for CC (dis)charge step
 alpha_t = 3 # Coeff for CC time + relaxation time
-maxiter = 80000
-n_samples = 1000
-t_limit = 10 # Time limit for total diagnostics in [hr]
+t_limit_list = np.array([20, 19, 18, 17, 16, 15, 14.75, 14.5, 14.25, 14, 13.75, 13.5, 13.25, 13, 12.75, 12.5, 12.25, 12, 11.75, 11.5, 11.25, 11, 10.75, 10.5, 10.25, 10, 9.75, 9.5, 9.25, 9, 8.75, 8.5, 8.25, 8, 7.75, 7.5, 7.25, 7, 6.75, 6.5, 6.25, 6, 5.75, 5.5, 5.25, 5, 4.75, 4.5, 4.25, 4, 3.9, 3.8, 3.7, 3.6, 3.5, 3.4, 3.3, 3.2, 3.1, 3, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1, 2, 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]) # Time limit for total diagnostics in [hr]
+#t_limit_list = np.array([13, 12.75]) # Time limit for total diagnostics in [hr]
 Nrange = np.arange(5, 6) # Range for number of pulses
 
 deg_params = np.reshape(np.concatenate((R_f_c_range, c_tilde_c_range, R_f_a_range, c_tilde_a_range, c_lyte_range), axis=0), (1, 10))
 
 tpe = "D" # Which optimal? A/D/E
 rxn_method = "CIET" # Which rxn model? BV/CIET
-sig_digits = 4 # Number of significant digits to use for \Sigma_y
+sig_digits = 10 # Number of significant digits to use for \Sigma_y
 V_limit = 0.050 # Lower limit for delta_V in [V]
-I_err = 0.001 # Measurement error of current in [A/m^2]. Surface area ~ 0.063 [m^2]
+I_err = 0.0001 # Measurement error of current in [A/m^2]. Surface area ~ 0.063 [m^2]
 
 #x0 = np.array([ 1.07987934e-03,  1.55931796e-01,  8.17665861e-01,  1.05970758e-03, 2.49728961e-03,  6.89072911e-01,  1.94708802e+00,  7.78826329e+00,5.31720455e+00, -7.78810351e+00,  7.78808766e+00])
 
@@ -463,20 +463,20 @@ def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particl
     return np.maximum(t_c, t_a) / 3600
 
 
-def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe, V_limit, t_limit):
+def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe):
     """N is the maximum number of pulses we want, c_range is the discretized c values, V_range i the discretized V values.
     Matrix W: (degradation parameters, c_values, V_values)
     opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
-    c_range = 0.85 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.85)
+    c_range = 0.4 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.85 - 0.4)
     c_range = np.round(c_range * 1000)/1000
 
     # mu_range = get_muR_from_OCV(opt_params[N:], 0)
     pulse_range = opt_params[-N:]
 
     c_c = c_range
-    c_c_t = np.concatenate((np.array([0.85]), c_range))
+    c_c_t = np.concatenate((np.array([0.4]), c_range))
     c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
     c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
 
@@ -498,24 +498,28 @@ def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe, V_limi
     S = dWdtheta_averaged(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)
     # sigma_y should scale iwth the inverse of the current magnitude
     W_range = W_averaged(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a)[0]
-    err_y = I_err * np.abs(np.divide((1 - W_range), R_value))
+    #err_y = I_err * np.abs(np.divide((1 - W_range), R_value))
+    err_y = np.abs(np.divide((1 - W_range), R_value))
     #rescale_current = R_value / np.max(R_value)
     #sigma_y_inv = np.diag(rescale_current ** 2)
     sigma_y_inv = np.diag(err_y ** (-2))
-    sigma_inv = np.dot(np.dot(Round_off(S, sig_digits), Round_off(sigma_y_inv, sig_digits)), Round_off(S, sig_digits).T)
+    #sigma_inv = np.dot(np.dot(Round_off(S, sig_digits), Round_off(sigma_y_inv, sig_digits)), Round_off(S, sig_digits).T)
+    sigma_inv = np.dot(np.dot(S, sigma_y_inv), S.T)
 
     # check if determinant is zero
     if np.linalg.det(sigma_inv) != 0:
-        sigma = np.linalg.inv(sigma_inv)
+        # sigma = np.linalg.inv(sigma_inv)
         # sigma = np.linalg.inv(np.dot(S, S.T))
 
         if tpe == "D":
-            phi_ED = (np.linalg.det(sigma))
+            phi_ED = 1/np.linalg.det(sigma_inv)
         elif tpe == "A":
+            sigma = np.linalg.inv(sigma_inv)
             phi_ED = np.trace(sigma) / len(deg_params)
         elif tpe == "E":
+            sigma = np.linalg.inv(sigma_inv)
             phi_ED = np.max(np.linalg.eigvals(sigma))
-        if np.any(np.diag(sigma) < 0):
+        if np.any(np.diag(sigma_inv) < 0):
             phi_ED = np.exp(100)
     else:
         phi_ED = np.exp(100)
@@ -533,11 +537,11 @@ def get_relax_time_function(opt_params, N, params_c, params_a, CC):
     opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
-    c_range = 0.85 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.85)
+    c_range = 0.4 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.85 - 0.4)
     c_range = np.round(c_range * 1000) / 1000
     # mu_range = get_muR_from_OCV(opt_params[N:], 0)
     # this is only the pulse value. we should do OCV + pulse value
-    c_c = np.concatenate((np.array([0.85]), c_range)) # Having rest time before each pulse -> Total N rest time
+    c_c = np.concatenate((np.array([0.4]), c_range)) # Having rest time before each pulse -> Total N rest time
     c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
     # first, solve for the V_offsets
     # all the V's are actually phis
@@ -546,13 +550,13 @@ def get_relax_time_function(opt_params, N, params_c, params_a, CC):
 
 
 
-def bound_error(opt_params, N, deg_params, params_c, params_a, tpe, V_limit, t_limit):
+def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
     """N is the maximum number of pulses we want, c_range is the discretized c values, V_range i the discretized V values.
     Matrix W: (degradation parameters, c_values, V_values)
     opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
-    c_range = 0.85 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.85)
+    c_range = 0.4 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.85 - 0.4)
     c_range = np.round(c_range * 1000) / 1000
     # mu_range = get_muR_from_OCV(opt_params[N:], 0)
     pulse_range = opt_params[-N:]
@@ -583,21 +587,6 @@ def bound_error(opt_params, N, deg_params, params_c, params_a, tpe, V_limit, t_l
     sigma = np.linalg.inv(sigma_inv)
     return np.sqrt(np.diag(sigma))
 
-def time_constraint(x):
-    c_range = 0.85 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.4 - 0.85)
-    c_range = np.round(c_range * 1000) / 1000
-    c_c = c_range
-    c_c_t = np.concatenate((np.array([0.85]), c_range))
-    c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
-    return t_limit - np.sum(time_obj(params_c["alpha"], c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
-                         params_a['particle_size'], params_c['diff'], params_a['diff']))
-
-def voltage_constraint(x):
-    pulse_range = x[-N:]
-    return np.sum(np.abs(get_OCV_from_muR(pulse_range, 0)) > V_limit) - N
-
-
-cons = ({'type': 'ineq', 'fun': time_constraint}, {'type': 'ineq', 'fun': voltage_constraint})
 
 # set degradation parameters
 
@@ -655,57 +644,99 @@ muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
 #alpha in params_c represents the scaling of relaxation time.
 
 # input parameters for electrodes
-params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
+params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
         'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c, 'alpha': alpha_t}
-params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a, 'mu': Tesla_graphite,
+params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a, 'mu': Tesla_graphite,
         'muR_ref': muR_ref_a, 'diff': diffgraphite, 'particle_size': r_a}
 # out = optimization_protocol(N, ref_params, params_c, params_a, tpe)
 
 # print("Optimum Parameters: c: ", out[:N], "; V: ", get_OCV_from_muR(out[N:], 0), "; value: ", optimize_function(out, N, ref_params, params_c, params_a, tpe))
 
-# saves error for each variable
-error_save = np.zeros((len(Nrange), 5))
-# saves SOC and voltage values for each pulse
-optimization_save = np.ones((len(Nrange), 2*Nrange[-1]))*np.nan
-# saves rest time in between pulses
-tau_save = np.ones((len(Nrange), Nrange[-1]))*np.nan
 
-for i in range(len(Nrange)):
+N=5
+class uncertainty_function:
+    def __init__(self, N, idx):
+        self.N = N
+        self.dim = 2 * N + 1
+        self.idx = idx
+
+    def fitness(self, x):
+        N = self.N
+        idx = self.idx
+        c_range = 0.4 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.85 - 0.4)
+        c_range = np.round(c_range * 1000) / 1000
+        c_c = c_range
+        c_c_t = np.concatenate((np.array([0.4]), c_range))
+        c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
+        pulse_range = x[-N:]
+
+        obj = optimize_function(x, N, deg_params, params_c, params_a, tpe)
+        ci1 = np.sum(time_obj(params_c["alpha"], c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
+                         params_a['particle_size'], params_c['diff'], params_a['diff'])) - t_limit_list[idx]
+        ci2 =  N - np.sum(np.abs(get_OCV_from_muR(pulse_range, 0)) > V_limit)
+        return [obj, ci1, ci2]
+
+    def get_bounds(self):
+        N = self.N
+        return ([0.0001] * (N + 1) + [get_muR_from_OCV(0.2, 0)] * N, [1] * (N + 1) + [get_muR_from_OCV(-0.2, 0)] * N)
+    def get_nic(self):
+        return 2
+    def get_nec(self):
+        return 0
+    def gradient(self, x):
+        return pg.estimate_gradient_h(lambda x: self.fitness(x), x)
+    def get_name(self):
+        return "Uncertainty Function"
+
+    def get_extra_info(self):
+        return "\tDimensions: " + str(self.dim)
+
+
+opt_result = np.zeros((len(t_limit_list), 2*N+4))*np.nan
+# saves error for each variable
+error_save = np.zeros((len(t_limit_list), N))*np.nan
+# saves SOC and voltage values for each pulse
+optimization_save = np.zeros((len(t_limit_list), 2*N))*np.nan
+# saves rest time in between pulses
+tau_save = np.ones((len(t_limit_list), N))*np.nan
+pareto_save = np.ones((len(t_limit_list), 2))*np.nan
+
+for i in range(len(t_limit_list)):
     # optimal
-    N = Nrange[i]
+
     # we wnat N_pulses
     # generate initial condition from "best guess"
     # initial_condition
-    mu_guess = get_muR_from_OCV(0.1 * np.ones(N), 0)
-    if 'x0' not in locals():
-        x0 = np.concatenate((np.concatenate((0.5 * np.ones(N), np.array([0.5]))), mu_guess))  # initial_condition
-    # set bounds
-    l = (0.0001, 1)
-    m = (get_muR_from_OCV(0.2, 0), get_muR_from_OCV(-0.2, 0))  # for pulse sizes
-    bnds = (l,) * (N+1) + (m,) * N
-    # use a global optimization algorithm
-    if __name__ == '__main__':
-        pool = multiprocessing.Pool()
-        opt = shgo(optimize_function, bounds=bnds, args=(N, deg_params, params_c, params_a, tpe, V_limit, t_limit), constraints=cons, sampling_method='sobol', workers=multiprocessing.Pool)
-    out = opt.x
-    c_range = 0.85 + np.cumsum(out[:N]) / np.sum(out[:N+1]) * (0.4 - 0.85)
+
+    algo = algorithm(ihs(50000))
+    algo.set_verbosity(2000)
+    pop = pg.population(prob=uncertainty_function(5, i), size=5, seed=42)
+    pop.problem.c_tol = [0] * 2
+    pop = algo.evolve(pop)
+
+    opt_result[i,:] = np.concatenate((pop.champion_f, pop.champion_x))
+    out = pop.champion_x
+    c_range = 0.4 + np.cumsum(out[:N]) / np.sum(out[:N+1]) * (0.85 - 0.4)
     c_range = np.round(c_range * 1000) / 1000
     optimization_save[i, :N] = c_range
-    optimization_save[i, Nrange[-1]:Nrange[-1] + N] = get_OCV_from_muR(out[-N:], 0)
+    optimization_save[i, N:2*N] = get_OCV_from_muR(out[-N:], 0)
     tau_save[i, :N] = get_relax_time_function(out, N, params_c, params_a, CC)
     print("N: ", N, "   Optimum Parameters: c: ", c_range, "; V: ", get_OCV_from_muR(out[-N:], 0), "; value: ",
-            optimize_function(out, N, deg_params, params_c, params_a, tpe, V_limit, t_limit), "; relaxation time (hr): ", tau_save[i, :N])
-    print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe, V_limit, t_limit))
-    error_save[i, :] = bound_error(out, N, deg_params, params_c, params_a, tpe, V_limit, t_limit)
-    J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe, V_limit, t_limit)
+            optimize_function(out, N, deg_params, params_c, params_a, tpe), "; relaxation time (hr): ", tau_save[i, :N])
+    print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe))
+    error_save[i, :] = bound_error(out, N, deg_params, params_c, params_a, tpe)
+    J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe)
     c_c = c_range
-    c_c_t = np.concatenate((np.array([0.85]), c_range))
+    c_c_t = np.concatenate((np.array([0.4]), c_range))
     c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
     c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
     J2 = np.sum(time_obj(params_c["alpha"], c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
                             params_a['particle_size'], params_c['diff'], params_a['diff']))
     print("log(J1) = ", J1, "     J2 = ", J2)
+    pareto_save[i, :] = np.array([J1, J2])
 
-np.savetxt("optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", np.concatenate((Nrange.reshape(-1,1),optimization_save),axis = 1))
-np.savetxt("error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", np.concatenate((Nrange.reshape(-1,1),error_save),axis = 1))
-np.savetxt("tau_relax_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", np.concatenate((Nrange.reshape(-1,1),tau_save),axis = 1))
+
+np.savetxt("optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", optimization_save)
+np.savetxt("error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", error_save)
+np.savetxt("tau_relax_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", tau_save)
+np.savetxt("pareto_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", pareto_save)
