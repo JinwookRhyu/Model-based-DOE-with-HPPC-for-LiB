@@ -4,45 +4,78 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import string
 import pickle
+import os
 
 # Input parameters
 is_uncertainty = True # True if plotting uncertainty (e.g. 90% confidence region), False if plotting error (i.e. predicted - actual)
 is_relative = True # True if plotting relative (%) values, False if plotting absolute values
 is_transparent = False # Whether to plot transparent histogram
-
-
+is_balanced = False
 
 Standard = []
-with (open("C:/Users/Jinwook/PyCharm_projects/DOE/dummy_N5_similar_0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0.pkl", "rb")) as openfile:
-    while True:
-        try:
-            Standard.append(pickle.load(openfile))
-        except EOFError:
-            break
-
-Optimal = []
-with (open("C:/Users/Jinwook/PyCharm_projects/DOE/optimal_N5_similar_0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0.pkl", "rb")) as openfile:
-    while True:
-        try:
-            Optimal.append(pickle.load(openfile))
-        except EOFError:
-            break
-
 General = []
-with (open("C:/Users/Jinwook/PyCharm_projects/DOE/general_N5_similar_0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0.pkl", "rb")) as openfile:
-    while True:
-        try:
-            General.append(pickle.load(openfile))
-        except EOFError:
-            break
-
+Individual = []
 Random = []
-with (open("C:/Users/Jinwook/PyCharm_projects/DOE/random_N5_0.0_10.0_0.5_1.0_0.0_10.0_0.5_1.0_0.7_1.0.pkl", "rb")) as openfile:
-    while True:
-        try:
-            Random.append(pickle.load(openfile))
-        except EOFError:
-            break
+if is_balanced:
+    with (open(os.getcwd() + "/standard_N10_balanced_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0.pkl", "rb")) as openfile:
+        while True:
+            try:
+                Standard.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+
+    with (open(os.getcwd() + "/individual_optimal_N5_balanced_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0.pkl", "rb")) as openfile:
+        while True:
+            try:
+                Individual.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+
+    with (open(os.getcwd() + "/generalized_optimal_N5_balanced_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0.pkl", "rb")) as openfile:
+        while True:
+            try:
+                General.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+    with (open(os.getcwd() + "/random_N5_balanced_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0.pkl", "rb")) as openfile:
+        while True:
+            try:
+                Random.append(pickle.load(openfile))
+            except EOFError:
+                break
+else:
+    with (open(os.getcwd() + "/standard_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl", "rb")) as openfile:
+        while True:
+            try:
+                Standard.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+    with (open(os.getcwd() + "/individual_optimal_N5_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl",
+               "rb")) as openfile:
+        while True:
+            try:
+                Individual.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+    with (open(os.getcwd() + "/generalized_optimal_N5_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl",
+               "rb")) as openfile:
+        while True:
+            try:
+                General.append(pickle.load(openfile))
+            except EOFError:
+                break
+
+    with (open(os.getcwd() + "/random_N5_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl", "rb")) as openfile:
+        while True:
+            try:
+                Random.append(pickle.load(openfile))
+            except EOFError:
+                break
 
 ####################################################################################################################
 # Pairplot figure
@@ -61,10 +94,10 @@ plt.show()
 ####################################################################################################################
 # Effectiveness of model-based DOE
 
-Uncertainty_optimal_lb = np.zeros((len(Optimal[0]), 5))
-Uncertainty_optimal_ub = np.zeros((len(Optimal[0]), 5))
-Uncertainty_optimal = np.zeros((len(Optimal[0]), 5))
-Error_optimal = np.zeros((len(Optimal[0]), 5))
+Uncertainty_individual_lb = np.zeros((len(Individual[0]), 5))
+Uncertainty_individual_ub = np.zeros((len(Individual[0]), 5))
+Uncertainty_individual = np.zeros((len(Individual[0]), 5))
+Error_individual = np.zeros((len(Individual[0]), 5))
 Uncertainty_general_lb = np.zeros((len(General[0]), 5))
 Uncertainty_general_ub = np.zeros((len(General[0]), 5))
 Uncertainty_general = np.zeros((len(General[0]), 5))
@@ -79,10 +112,10 @@ Uncertainty_random = np.zeros((len(Random[0]), 5))
 Error_random = np.zeros((len(Random[0]), 5))
 
 for k in range(len(Standard[0])):
-    Uncertainty_optimal_lb[k, :] = Optimal[0][k]['lb_90'] - Optimal[0][k]['True_params']
-    Uncertainty_optimal_ub[k, :] = Optimal[0][k]['ub_90'] - Optimal[0][k]['True_params']
-    Uncertainty_optimal[k, :] = Optimal[0][k]['ub_90'] - Optimal[0][k]['lb_90']
-    Error_optimal[k, :] = Optimal[0][k]['Estimated_params'] - Optimal[0][k]['True_params']
+    Uncertainty_individual_lb[k, :] = Individual[0][k]['lb_90'] - Individual[0][k]['True_params']
+    Uncertainty_individual_ub[k, :] = Individual[0][k]['ub_90'] - Individual[0][k]['True_params']
+    Uncertainty_individual[k, :] = Individual[0][k]['ub_90'] - Individual[0][k]['lb_90']
+    Error_individual[k, :] = Individual[0][k]['Estimated_params'] - Individual[0][k]['True_params']
     Uncertainty_general_lb[k, :] = General[0][k]['lb_90'] - General[0][k]['True_params']
     Uncertainty_general_ub[k, :] = General[0][k]['ub_90'] - General[0][k]['True_params']
     Uncertainty_general[k, :] = General[0][k]['ub_90'] - General[0][k]['lb_90']
@@ -96,17 +129,17 @@ for k in range(len(Standard[0])):
     Uncertainty_random[k, :] = Random[0][k]['ub_90'] - Random[0][k]['lb_90']
     Error_random[k, :] = Random[0][k]['Estimated_params'] - Random[0][k]['True_params']
 
-Uncertainty_optimal_all = np.vstack((Uncertainty_optimal_lb, Uncertainty_optimal_ub))
+Uncertainty_individual_all = np.vstack((Uncertainty_individual_lb, Uncertainty_individual_ub))
 Uncertainty_general_all = np.vstack((Uncertainty_general_lb, Uncertainty_general_ub))
 Uncertainty_standard_all = np.vstack((Uncertainty_standard_lb, Uncertainty_standard_ub))
 Uncertainty_random_all = np.vstack((Uncertainty_random_lb, Uncertainty_random_ub))
 True_params_rep = np.vstack((True_params, True_params))
 
-Rel_Uncertainty_optimal_all = np.divide(Uncertainty_optimal_all, True_params_rep) * 100
+Rel_Uncertainty_individual_all = np.divide(Uncertainty_individual_all, True_params_rep) * 100
 Rel_Uncertainty_general_all = np.divide(Uncertainty_general_all, True_params_rep) * 100
 Rel_Uncertainty_standard_all = np.divide(Uncertainty_standard_all, True_params_rep) * 100
 Rel_Uncertainty_random_all = np.divide(Uncertainty_random_all, True_params_rep) * 100
-Rel_Error_optimal = np.divide(Error_optimal, True_params) * 100
+Rel_Error_individual = np.divide(Error_individual, True_params) * 100
 Rel_Error_general = np.divide(Error_general, True_params) * 100
 Rel_Error_standard = np.divide(Error_standard, True_params) * 100
 Rel_Error_random = np.divide(Error_random, True_params) * 100
@@ -123,7 +156,7 @@ if is_uncertainty:
             if idx < 5:
                 ax.hist(Rel_Uncertainty_random_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
                         bins=20, color="gray", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                ax.axvline(x=Rel_Uncertainty_optimal_all[56, idx], color='blue', linewidth=2)
+                ax.axvline(x=Rel_Uncertainty_individual_all[56, idx], color='blue', linewidth=2)
                 ax.set_ylabel(yaxes[idx])
                 ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
                 ax.set_ylim(0, 100)
@@ -148,7 +181,7 @@ if is_uncertainty:
             if idx < 5:
                 ax.hist(Uncertainty_random_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
                         color="gray", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                ax.axvline(x=Uncertainty_optimal_all[56, idx], color='blue', linewidth=2)
+                ax.axvline(x=Uncertainty_individual_all[56, idx], color='blue', linewidth=2)
                 ax.set_ylabel(yaxes[idx])
                 ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
                 ax.set_ylim(0, 100)
@@ -173,7 +206,7 @@ else:
             if idx < 5:
                 ax.hist(Rel_Error_random[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
                         color="gray", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                ax.axvline(x=Rel_Error_optimal[56, idx], color='blue', linewidth=2)
+                ax.axvline(x=Rel_Error_individual[56, idx], color='blue', linewidth=2)
                 ax.set_ylabel(yaxes[idx])
                 ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
                 ax.set_ylim(0, 100)
@@ -198,7 +231,7 @@ else:
             if idx < 5:
                 ax.hist(Error_random[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
                         color="gray", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                ax.axvline(x=Error_optimal[56, idx], color='blue', linewidth=2)
+                ax.axvline(x=Error_individual[56, idx], color='blue', linewidth=2)
                 ax.set_ylabel(yaxes[idx])
                 ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
                 ax.set_ylim(0, 100)
@@ -238,7 +271,7 @@ ranges2 = [-2, 2, -2, 2, -0.2, 0.2, -0.02, 0.02, -0.02, 0.02]
 for idx, ax in enumerate(axs):
     if idx < 5:
         ax.hist([Rel_Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                 Rel_Uncertainty_optimal_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
+                 Rel_Uncertainty_individual_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
                  Rel_Uncertainty_general_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1])],
                 bins=20, color=['green', 'blue', 'red'], range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
         ax.set_ylabel(yaxes[idx])
@@ -252,7 +285,7 @@ for idx, ax in enumerate(axs):
                 size=25, weight='bold')
         ax2 = fig.add_axes([0.35+0.48*(idx%2), 0.78-0.3*(np.floor(idx/2)), 0.11, 0.12])
         ax2.hist([Rel_Error_standard[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1]),
-                  Rel_Error_optimal[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1]),
+                  Rel_Error_individual[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1]),
                  Rel_Error_general[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1])], bins=8,
                 color=['green', 'blue', 'red'], range=(ranges2[2 * idx], ranges2[2 * idx + 1]))
         ax2.set_xlim(ranges2[2 * idx], ranges2[2 * idx + 1])
@@ -286,248 +319,6 @@ plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
 plt.savefig(fig3_name + ".png", dpi=300)
 plt.show()
-
-'''
-if is_uncertainty:
-    if is_relative:
-        ranges1 = [-100, 100, -40, 40, -4, 4, -1, 1, -1, 1]
-        ranges2 = [-20, 20, -5, 5, -0.5, 0.5, -0.05, 0.05, -0.05, 0.05]
-        if is_transparent:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist(Rel_Uncertainty_optimal_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                            bins=20, color="blue", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Rel_Uncertainty_general_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                            bins=20, color="red", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Rel_Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                            bins=20, color="green", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_uncertainty_rel_1"
-        else:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist([Rel_Uncertainty_optimal_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Rel_Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Rel_Uncertainty_general_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1])],
-                            bins=20, color=['blue', 'green', 'red'], range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x = 0, color = 'k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                    ax2 = fig.add_axes([0.35+0.48*(idx%2), 0.78-0.3*(np.floor(idx/2)), 0.11, 0.12])
-                    ax2.hist([Rel_Error_optimal[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1]),
-                             Rel_Error_standard[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1]),
-                             Rel_Error_general[:, idx].clip(min=ranges2[2 * idx], max=ranges2[2 * idx + 1])], bins=8,
-                            color=['blue', 'green', 'red'], range=(ranges2[2 * idx], ranges2[2 * idx + 1]))
-                    ax2.set_xlim(ranges2[2 * idx], ranges2[2 * idx + 1])
-                    ax2.set_ylim(0, 100)
-                    ax2.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax2.get_xaxis_transform(), clip_on=False)
-                    ax2.axvline(x=0, color='k', linewidth=2)
-                    ax2.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    for tick in ax2.xaxis.get_ticklabels():
-                        tick.set_fontsize(8)
-                    for tick in ax2.yaxis.get_ticklabels():
-                        tick.set_fontsize(8)
-                    ax.minorticks_on()
-                    ax.grid(which='major', linestyle='-', linewidth='0.5')
-                    ax.grid(which='minor', linestyle=':', linewidth='0.5')
-                    ax2.minorticks_on()
-                    ax2.grid(which='major', linestyle='-', linewidth='0.5')
-                    ax2.grid(which='minor', linestyle=':', linewidth='0.5')
-
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_uncertainty_rel_2"
-    else:
-        ranges1 = [-5, 5, -0.1, 0.1, -0.2, 0.2, -0.001, 0.001, -0.01, 0.01]
-        if is_transparent:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist(Uncertainty_optimal_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="blue", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Uncertainty_general_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="red", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="green", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_uncertainty_1"
-        else:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist([Uncertainty_optimal_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Uncertainty_general_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1])],
-                            bins=20, color=['blue', 'green', 'red'], range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_uncertainty_2"
-else:
-    if is_relative:
-        ranges1 = [-20, 20, -4, 4, -0.4, 0.4, -0.04, 0.04, -0.04, 0.04]
-        if is_transparent:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist(Rel_Error_optimal[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="blue", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Rel_Error_general[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="red", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Rel_Error_standard[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="green", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_error_rel_1"
-        else:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist([Rel_Error_optimal[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Rel_Error_standard[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Rel_Error_general[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1])], bins=20,
-                            color=['blue', 'green', 'red'], range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'], label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_error_rel_2"
-    else:
-        ranges1 = [-1, 1, -0.01, 0.01, -0.01, 0.01, -0.0001, 0.0001, -0.0001, 0.0001]
-        if is_transparent:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist(Error_optimal[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="blue", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Error_general[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="red", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.hist(Error_standard[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]), bins=20,
-                            color="green", alpha=0.5, range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_error_1"
-        else:
-            for idx, ax in enumerate(axs):
-                if idx < 5:
-                    ax.hist([Error_optimal[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Error_standard[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
-                             Error_general[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1])], bins=20,
-                            color=['blue', 'green', 'red'], range=(ranges1[2 * idx], ranges1[2 * idx + 1]))
-                    ax.set_ylabel(yaxes[idx])
-                    ax.set_xlim(ranges1[2 * idx], ranges1[2 * idx + 1])
-                    ax.set_ylim(0, 100)
-                    ax.plot((0), (1), ls="", marker="^", ms=10, color="k",
-                            transform=ax.get_xaxis_transform(), clip_on=False)
-                    ax.axvline(x=0, color='k', linewidth=2)
-                    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-                    ax.text(-0.29, 1.0, "(" + string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
-                            size=25, weight='bold')
-                else:
-                    ax.hist([np.array([100]), np.array([100]), np.array([100])], bins=20,
-                            color=['blue', 'green', 'red'],
-                            label=['Individual optimal (N=5)', 'Standard (N=10)', 'Generalized optimal (N=5)'],
-                            range=(0, 1))
-                    ax.legend(loc='upper left')
-                    ax.axis('off')
-            fig3_name = "performance_error_2"
-
-plt.style.use('seaborn-v0_8-muted')
-plt.tight_layout()
-plt.subplots_adjust(wspace=0.4, hspace=0.4)
-plt.savefig(fig3_name + ".png", dpi=300)
-plt.show()
-'''
-
 
 
 d

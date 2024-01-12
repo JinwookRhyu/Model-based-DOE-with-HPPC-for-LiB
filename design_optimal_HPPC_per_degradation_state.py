@@ -7,8 +7,8 @@ import os
 import pygmo as pg
 from pygmo import *
 
-if_balanced = False
-if_initial_high = True
+is_balanced = False
+is_initial_high = True
 N = 5 # Number of pulses
 
 V_limit = 0.050 # Lower limit for delta_V in [V]
@@ -29,7 +29,7 @@ deg_params_range = np.reshape(np.concatenate((R_f_c_range, c_tilde_c_range, R_f_
 deg_params_lower = np.array([deg_params_range[0][0], deg_params_range[0][2], deg_params_range[0][4], deg_params_range[0][6], deg_params_range[0][8]])
 deg_params_upper = np.array([deg_params_range[0][1], deg_params_range[0][3], deg_params_range[0][5], deg_params_range[0][7], deg_params_range[0][9]])
 
-if if_balanced:
+if is_balanced:
     savedir = os.getcwd() + "/error_bound_optimal_output_" + str(tpe) + "_N" + str(N) + "_balanced"
 else:
     savedir = os.getcwd() + "/error_bound_optimal_output_" + str(tpe) + "_N" + str(N) + "_unbalanced"
@@ -355,7 +355,7 @@ def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe):
     opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
-    if if_initial_high:
+    if is_initial_high:
         c_range = 0.8 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.8)
     else:
         c_range = 0.4 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N + 1]) * (0.8 - 0.4)
@@ -416,7 +416,7 @@ def bound_error(opt_params, N, deg_params, params_c, params_a):
     opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
-    if if_initial_high:
+    if is_initial_high:
         c_range = 0.8 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N+1]) * (0.4 - 0.8)
     else:
         c_range = 0.4 + np.cumsum(opt_params[:N]) / np.sum(opt_params[:N + 1]) * (0.8 - 0.4)
@@ -515,7 +515,7 @@ for mm in range(100):
 
     for rxn_method in ["CIET"]:
         for tpe in ["D"]:
-            if if_balanced:
+            if is_balanced:
                 # input parameters for electrodes
                 params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
                     'muR_ref': muR_ref_c}
@@ -539,7 +539,7 @@ for mm in range(100):
 
                 def fitness(self, x):
                     N = self.N
-                    if if_initial_high:
+                    if is_initial_high:
                         c_range = 0.8 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.4 - 0.8)
                     else:
                         c_range = 0.4 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.8 - 0.4)
@@ -587,7 +587,7 @@ for mm in range(100):
 
             opt_result = np.concatenate((pop.champion_f, pop.champion_x))
             out = pop.champion_x
-            if if_initial_high:
+            if is_initial_high:
                 c_range = 0.8 + np.cumsum(out[:N]) / np.sum(out[:N + 1]) * (0.4 - 0.8)
             else:
                 c_range = 0.4 + np.cumsum(out[:N]) / np.sum(out[:N + 1]) * (0.8 - 0.4)
@@ -602,7 +602,7 @@ for mm in range(100):
             error_save = bound_error(out, N, deg_params, params_c, params_a)
             J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe)
             c_c = c_range
-            if if_initial_high:
+            if is_initial_high:
                 c_c_t = np.concatenate((np.array([0.8]), c_range))
             else:
                 c_c_t = np.concatenate((np.array([0.4]), c_range))
