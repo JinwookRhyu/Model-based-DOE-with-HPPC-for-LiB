@@ -200,11 +200,11 @@ def W_initial(c_c, c_a, mu, params_c, params_a, c_lyte):
 def W(deg_params, c_c, c_a, V_c, V_a, params_c, params_a):
     """solves overall W from the linear weight equation"""
     # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-    R_f_c = deg_params[:, [0]]
-    c_tilde_c = deg_params[:, [1]]
-    R_f_a = deg_params[:, [2]]
-    c_tilde_a = deg_params[:, [3]]
-    c_lyte = deg_params[:, [4]]
+    R_f_c = deg_params[0]
+    c_tilde_c = deg_params[1]
+    R_f_a = deg_params[2]
+    c_tilde_a = deg_params[3]
+    c_lyte = deg_params[4]
     W_c_hat = W_hat(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
     W_a_hat = W_hat(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
     # we should have different mures
@@ -218,11 +218,11 @@ def W(deg_params, c_c, c_a, V_c, V_a, params_c, params_a):
 def dWdtheta(deg_params, c_c, c_a, V_c, V_a, params_c, params_a):
     """solves overall dW/dtheta (sensitivity matrix) from weighing equation"""
     # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-    R_f_c = deg_params[:, [0]]
-    c_tilde_c = deg_params[:, [1]]
-    R_f_a = deg_params[:, [2]]
-    c_tilde_a = deg_params[:, [3]]
-    c_lyte = deg_params[:, [4]]
+    R_f_c = deg_params[0]
+    c_tilde_c = deg_params[1]
+    R_f_a = deg_params[2]
+    c_tilde_a = deg_params[3]
+    c_lyte = deg_params[4]
     dW_c_hat = dW_hat(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
     # this is only from the cathode, so in the full cell it doesn't affect the anode rows
     dW_c_hat = np.insert(dW_c_hat, [2, 2], np.zeros((2, len(c_c))), axis=0)
@@ -332,11 +332,11 @@ def delPhi(deg_params, c_c, c_a, V_c, V_a, params_c, params_a, icellbar):
     # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
     """Return delta Phi correction (Eq. 13) of HPPC paper to shift both anode and cathode potentials. we need to take
     the average of dPhi over the degradation range, which means the average over Whats for cathode and anode"""
-    R_f_c = deg_params[:, 0]
-    c_tilde_c = deg_params[:, 1]
-    R_f_a = deg_params[:, 2]
-    c_tilde_a = deg_params[:, 3]
-    c_lyte = deg_params[:, 4]
+    R_f_c = deg_params[0]
+    c_tilde_c = deg_params[1]
+    R_f_a = deg_params[2]
+    c_tilde_a = deg_params[3]
+    c_lyte = deg_params[4]
     W_c_hat = W_hat(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
     W_a_hat = W_hat(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
     # we should have different mures
@@ -601,17 +601,14 @@ for mm in range(100):
             print("Error: ", bound_error(out, N, deg_params, params_c, params_a))
             error_save = bound_error(out, N, deg_params, params_c, params_a)
             J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe)
-            c_c = c_range
-            if is_initial_high:
-                c_c_t = np.concatenate((np.array([0.8]), c_range))
-            else:
-                c_c_t = np.concatenate((np.array([0.4]), c_range))
-            c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
-            c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
-
             print("log(J1) = ", J1)
             pareto_save = np.array([J1])
+            c_c = c_range
+            np.savetxt(savedir + "/optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(
+                int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", optimization_save)
+            np.savetxt(savedir + "/error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(
+                int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", error_save)
+            np.savetxt(savedir + "/J1_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(
+                int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", pareto_save)
 
-            np.savetxt(savedir + "/optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", optimization_save)
-            np.savetxt(savedir + "/error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", error_save)
-            np.savetxt(savedir + "/J1_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt", pareto_save)
+
