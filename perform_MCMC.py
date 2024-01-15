@@ -8,10 +8,12 @@ from MCMC_autocorrelation_help import lnprob, Tesla_graphite, Tesla_NCA_Si, get_
 import pickle
 import os
 
+n_processes = 12 # number of cores for multiprocessing
 is_balanced = False
 saveplot = True
-mode = "generalized_optimal"
+mode = "individual_optimal"
 I_err = 0.0001
+V_limit = 0.050
 tpe = "D" # Optimality criterion "A" / "D" / "E"
 rxn_method = "CIET" # "CIET" / "BV"
 
@@ -20,8 +22,8 @@ if mode == "standard":
     delta_V = np.array([0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2])
 elif mode == "generalized_optimal": # The generalized optimal HPPC protocol depends on the degradation parameter ranges
     # TODO: Replace these values to the actual generalized optimal HPPC protocol
-    c_c = np.array([0.8, 0.8, 0.7, 0.7, 0.6])
-    delta_V = np.array([0.2, -0.2, 0.2, -0.2, 0.2])
+    c_c = np.array([8.00E-01, 7.53E-01, 7.07E-01, 6.85E-01, 6.41E-01, 6.38E-01, 6.28E-01])
+    delta_V = np.array([-2.00E-01, 2.00E-01, -1.51E-01, -1.42E-01, 1.46E-01, 1.44E-01, -2.00E-01])
 elif mode == "individual_optimal": # The individual optimal HPPC protocol depends on the degradation parameter values. Just set nan arrays at this moment.
     c_c = np.nan * np.ones((5,))
     delta_V = np.nan * np.ones((5,))
@@ -45,8 +47,10 @@ str_deg_params_range = str(deg_params_range[0][0]) + "_" + str(deg_params_range[
 # Directory for saving MCMC figures and autocorrelation figures
 if is_balanced:
     dir_savefig = os.getcwd() + "/I_err_" + str(I_err) + "_" + mode + "_N" + str(N) + "_" + str_deg_params_range + "_balanced"
+    dir_txtfile = os.getcwd() + "/error_bound_optimal_output_" + tpe + "_N" + str(N) + "_balanced"
 else:
     dir_savefig = os.getcwd() + "/I_err_" + str(I_err) + "_" + mode + "_N" + str(N) + "_" + str_deg_params_range + "_unbalanced"
+    dir_txtfile = os.getcwd() + "/error_bound_optimal_output_" + tpe + "_N" + str(N) + "_unbalanced"
 
 if not os.path.exists(dir_savefig):
     os.mkdir(dir_savefig)
@@ -55,7 +59,7 @@ if not os.path.exists(dir_savefig):
 results={}
 ii = 0
 
-for mm in range(2):
+for mm in range(100):
     rng = np.random.RandomState(mm)
     deg_params_true = deg_params_lower + np.multiply((deg_params_upper - deg_params_lower), rng.uniform(0, 1, 5))
     deg_params_true = np.round(deg_params_true * 1000) / 1000
@@ -64,7 +68,7 @@ for mm in range(2):
 
     os.environ["OMP_NUM_THREADS"] = "1"
     nwalkers = 24
-    niter = 10
+    niter = 10000
 
     plt.rcParams['figure.figsize'] = (20, 10)
     V_limit = 0.050
@@ -134,6 +138,13 @@ for mm in range(2):
     str_deg_params = str(deg_params_true[0]) + "_" + str(deg_params_true[1]) + "_" + str(
         deg_params_true[2]) + "_" + str(deg_params_true[3]) + "_" + str(deg_params_true[4])
 
+    with open(dir_txtfile + "/optimized_output_" + str(rxn_method) + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt") as f:
+        contents = f.readlines()
+
+    c_c = np.array([float(i) for i in contents[0].split()[0:N]])
+    c_c = np.round(c_c * 1000) / 1000
+    delta_V = np.array([float(i) for i in contents[0].split()[N:2*N]])
+
     # Spread walkers
     initial = np.array([deg_params_range[0][0], deg_params_range[0][2], deg_params_range[0][4], deg_params_range[0][6], deg_params_range[0][8]])
     ndim = len(initial)
@@ -157,7 +168,7 @@ for mm in range(2):
     data = (c_c, c_a, params_c, params_a, y, I_err, pulse_range, deg_params_range)
 
     if __name__ == '__main__':
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(processes=n_processes)
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=data, pool=pool)
 
