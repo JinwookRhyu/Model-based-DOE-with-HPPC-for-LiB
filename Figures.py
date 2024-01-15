@@ -11,7 +11,7 @@ from matplotlib import cm
 is_uncertainty = True # True if plotting uncertainty (e.g. 90% confidence region), False if plotting error (i.e. predicted - actual)
 is_relative = True # True if plotting relative (%) values, False if plotting absolute values
 is_transparent = False # Whether to plot transparent histogram
-is_balanced = True
+is_balanced = False
 
 
 
@@ -259,10 +259,10 @@ yaxes = ['R_f_c', 'c_tilde_c', 'R_f_a', 'c_tilde_a', 'c_lyte']
 fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10,6))
 axs = axs.ravel()
 
-ranges1 = [-100, 100, -20, 20, -2, 2, -0.5, 0.5, -0.5, 0.5]
-ranges2 = [-10, 10, -2, 2, -0.2, 0.2, -0.02, 0.02, -0.02, 0.02]
 
 if is_balanced:
+    ranges1 = [-2, 2, -2, 2, -2, 2, -2, 2, -2, 2]
+    ranges2 = [-2, 2, -2, 2, -2, 2, -2, 2, -2, 2]
     for idx, ax in enumerate(axs):
         if idx < 5:
             ax.hist([Rel_Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
@@ -309,6 +309,8 @@ if is_balanced:
             ax.axis('off')
     fig3_name = "fig2_balanced"
 else:
+    ranges1 = [-100, 100, -20, 20, -2, 2, -0.5, 0.5, -0.5, 0.5]
+    ranges2 = [-10, 10, -2, 2, -0.2, 0.2, -0.02, 0.02, -0.02, 0.02]
     for idx, ax in enumerate(axs):
         if idx < 5:
             ax.hist([Rel_Uncertainty_standard_all[:, idx].clip(min=ranges1[2 * idx], max=ranges1[2 * idx + 1]),
