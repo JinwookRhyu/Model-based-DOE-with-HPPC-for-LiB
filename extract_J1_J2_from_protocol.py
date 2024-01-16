@@ -29,6 +29,7 @@ c_tilde_a_range = np.array([0.8, 1])  # Range for c_tilde_a (lb, ub)
 c_lyte_range = np.array([0.8, 1])  # Range for c_lyte (lb, ub)
 
 CC = 0.5  # C-rate for CC (dis)charge step
+t_pulse = 5 # pulse time
 alpha_t = 1  # Coeff for CC time + relaxation time
 
 deg_params = np.reshape(
@@ -369,20 +370,19 @@ def t_tot(alpha, cmin, cmax, particle_size, diff_data):
     return t
 
 
-def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC):
+def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
     """return tau_relax, relaxation timeit takes to perform the entire segment. we also assume the constant current discharge rate is 1 using the limiting electrode (graphite)"""
     return np.maximum(time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c,
-                               diff_a, CC) - np.abs((c_max_c - c_min_c) / CC), np.zeros(c_min_c.shape))
+                               diff_a, CC, t_pulse, R_value, cap_c, cap_a) - np.abs((c_max_c - c_min_c) / CC) * 3600, np.zeros(c_min_c.shape))
 
 
-def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC):
-    """returns minimum objective function depending on time in hours"""
-    t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - np.abs((c_max_c - c_min_c) / CC),
-                     np.zeros(c_min_c.shape)) + np.abs((c_max_c - c_min_c) / CC)
-    t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - np.abs((c_max_c - c_min_c) / CC),
-                     np.zeros(c_min_c.shape)) + np.abs((c_max_c - c_min_c) / CC)
+def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
+    """returns minimum objective function depending on time in hours""" 
+    operation_time_c = np.abs((c_max_c - c_min_c) / CC) * 3600 + np.abs(R_value/(constants.e*cap_c)*t_pulse)
+    operation_time_a = np.abs((c_max_a - c_min_a) / CC) * 3600 + np.abs(R_value/(constants.e*cap_a)*t_pulse)
+    t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - operation_time_c, np.zeros(c_min_c.shape)) + operation_time_c
+    t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - operation_time_a, np.zeros(c_min_c.shape)) + operation_time_a
     return np.maximum(t_c, t_a) / 3600
-
 
 
 # set degradation parameters
@@ -396,8 +396,8 @@ diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', del
 
 
 # particle size
-r_c = 11e-6
-r_a = 17e-6
+r_c = 1e-7
+r_a = 1e-7
 # lengths
 L_c = 64e-6
 L_a = 83e-6
@@ -441,7 +441,7 @@ muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
 if is_balanced:
     # input parameters for electrodes
     params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
-                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c}
+            'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c, 't_pulse': t_pulse}
     params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                 'mu': Tesla_graphite,
                 'muR_ref': muR_ref_a, 'diff': diffgraphite, 'particle_size': r_a}
@@ -449,7 +449,7 @@ else:
     # input parameters for electrodes
     params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
                 'mu': Tesla_NCA_Si,
-                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c}
+                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c, 't_pulse': t_pulse}
     params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                 'mu': Tesla_graphite,
                 'muR_ref': muR_ref_a, 'diff': diffgraphite, 'particle_size': r_a}
@@ -464,13 +464,15 @@ else:
     c_c_t = np.concatenate((np.array([0.4]), c_range))
 c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
 c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
-J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
-                         params_a['particle_size'], params_c['diff'], params_a['diff'], CC))
-J2
-voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
+
 # solve for the initial voltage pulses
+voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
+
 mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1) # No degradation
 mu_range_a = mu_range_c + voltage_range
+
+J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
+                         params_a['particle_size'], params_c['diff'], params_a['diff'], CC, params_c['t_pulse'], R_value, params_c["p"], params_a["p"]))
 # correct for voltage shift of mu_range_c and mu_range_a each with the deltaphi correction in Eq. 13 of hppc paper 1
 dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
 mu_range_c = mu_range_c + dPhi
