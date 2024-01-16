@@ -24,13 +24,13 @@ c_tilde_a_range = np.array([0.8, 1]) # Range for c_tilde_a (lb, ub)
 c_lyte_range = np.array([0.8, 1]) # Range for c_lyte (lb, ub)
 
 CC = 0.5 # C-rate for CC (dis)charge step
+t_pulse = 5 # pulse time in seconds
 alpha_t = 1 # Coeff for CC time + relaxation time
 t_limit_list = 3 * np.array([20, 19, 18, 17, 16, 15, 14.75, 14.5, 14.25, 14, 13.75, 13.5, 13.25, 13, 12.75, 12.5, 12.25, 12, 11.75, 11.5, 11.25, 11, 10.75, 10.5, 10.25, 10, 9.75, 9.5, 9.25, 9, 8.75, 8.5, 8.25, 8, 7.75, 7.5, 7.25, 7, 6.75, 6.5, 6.25, 6, 5.75, 5.5, 5.25, 5, 4.75, 4.5, 4.25, 4, 3.9, 3.8, 3.7, 3.6, 3.5, 3.4, 3.3, 3.2, 3.1, 3, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1, 2, 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]) # Time limit for total diagnostics in [hr]
 
 deg_params = np.reshape(np.concatenate((R_f_c_range, c_tilde_c_range, R_f_a_range, c_tilde_a_range, c_lyte_range), axis=0), (1, 10))
 
 str_deg_params = str(deg_params[0][0]) + "_" + str(deg_params[0][1]) + "_" + str(deg_params[0][2]) + "_" + str(deg_params[0][3]) + "_" + str(deg_params[0][4]) + "_" + str(deg_params[0][5]) + "_" + str(deg_params[0][6]) + "_" + str(deg_params[0][7]) + "_" + str(deg_params[0][8]) + "_" + str(deg_params[0][9])
-print(str_deg_params)
 
 if is_balanced:
     if is_initial_high:
@@ -438,23 +438,27 @@ def t_tot(alpha, cmin, cmax, particle_size, diff_data):
     return t
 
 
-def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC):
+def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
     """return tau_relax, relaxation timeit takes to perform the entire segment. we also assume the constant current discharge rate is 1 using the limiting electrode (graphite)"""
     return np.maximum(time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c,
-                               diff_a, CC) - np.abs((c_max_c - c_min_c) / CC), np.zeros(c_min_c.shape))
+                               diff_a, CC, t_pulse, R_value, cap_c, cap_a) - np.abs((c_max_c - c_min_c) / CC) * 3600, np.zeros(c_min_c.shape))
 
 
-def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC):
-    """returns minimum objective function depending on time in hours"""
-    t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - np.abs((c_max_c - c_min_c) / CC), np.zeros(c_min_c.shape)) + np.abs((c_max_c - c_min_c) / CC)
-    t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - np.abs((c_max_c - c_min_c) / CC), np.zeros(c_min_c.shape)) + np.abs((c_max_c - c_min_c) / CC)
+def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
+    """returns minimum objective function depending on time in hours""" 
+    operation_time_c = np.abs((c_max_c - c_min_c) / CC) * 3600 + np.abs(R_value/(constants.e*cap_c)*t_pulse)
+    operation_time_a = np.abs((c_max_a - c_min_a) / CC) * 3600 + np.abs(R_value/(constants.e*cap_a)*t_pulse)
+    t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - operation_time_c, np.zeros(c_min_c.shape)) + operation_time_c
+    t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - operation_time_a, np.zeros(c_min_c.shape)) + operation_time_a
     return np.maximum(t_c, t_a) / 3600
 
 
 def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe):
     """N is the maximum number of pulses we want, c_range is the discretized c values, V_range i the discretized V values.
     Matrix W: (degradation parameters, c_values, V_values)
-    opt_params: optimizing over (soc_array, voltage_array), both arrays of size N"""
+    opt_params: optimizing over (soc_array, voltage_array), both arrays of size N
+    returns: phi_ED: optimization criteria
+    R_value: current density of reaction during pulse"""
     # generate matrix of N pulses and M dedgradation mechanisms, N*M
     #   (c_range, V_range) = opt_params # both size (N*1, N*1)
     if is_initial_high:
@@ -517,7 +521,7 @@ def optimize_function(opt_params, N, deg_params, params_c, params_a, tpe):
     phi_ED = np.log(phi_ED)
     print("Pulse at c = " + str(c_range) + " with eta = " + str(pulse_range) + " resulted det = " + str(phi_ED))
 
-    return phi_ED
+    return phi_ED, R_value
 
 
 def get_relax_time_function(opt_params, N, params_c, params_a, CC):
@@ -595,8 +599,8 @@ diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', del
 
 
 # particle size
-r_c = 11e-6
-r_a = 17e-6
+r_c = 1e-7
+r_a = 1e-7
 # lengths
 L_c = 64e-6
 L_a = 83e-6
@@ -640,7 +644,7 @@ muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
 if is_balanced:
     # input parameters for electrodes
     params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
-                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c}
+            'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c, 't_pulse': t_pulse}
     params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                 'mu': Tesla_graphite,
                 'muR_ref': muR_ref_a, 'diff': diffgraphite, 'particle_size': r_a}
@@ -648,7 +652,7 @@ else:
     # input parameters for electrodes
     params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
                 'mu': Tesla_NCA_Si,
-                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c}
+                'muR_ref': muR_ref_c, 'diff': diffNCA, 'particle_size': r_c, 't_pulse': t_pulse}
     params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                 'mu': Tesla_graphite,
                 'muR_ref': muR_ref_a, 'diff': diffgraphite, 'particle_size': r_a}
@@ -678,9 +682,9 @@ class uncertainty_function:
         c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
         pulse_range = x[-N:]
 
-        obj = optimize_function(x, N, deg_params, params_c, params_a, tpe)
+        obj, R_value = optimize_function(x, N, deg_params, params_c, params_a, tpe)
         ci1 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
-                         params_a['particle_size'], params_c['diff'], params_a['diff'], CC)) - t_limit_list[idx]
+                         params_a['particle_size'], params_c['diff'], params_a['diff'], CC, params_c['t_pulse'], R_value, params_c["p"], params_a["p"])) - t_limit_list[idx]
         ci2 =  N - np.sum(np.abs(get_OCV_from_muR(pulse_range, 0)) > V_limit)
         return [obj, ci1, ci2]
 
@@ -733,10 +737,10 @@ for i in range(len(t_limit_list)):
     optimization_save[i, N:2*N] = get_OCV_from_muR(out[-N:], 0)
     tau_save[i, :N] = get_relax_time_function(out, N, params_c, params_a, CC)
     print("N: ", N, "   Optimum Parameters: c: ", c_range, "; V: ", get_OCV_from_muR(out[-N:], 0), "; value: ",
-            optimize_function(out, N, deg_params, params_c, params_a, tpe), "; relaxation time (hr): ", tau_save[i, :N])
+            optimize_function(out, N, deg_params, params_c, params_a, tpe)[0], "; relaxation time (hr): ", tau_save[i, :N])
     print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe))
     error_save[i, :] = bound_error(out, N, deg_params, params_c, params_a, tpe)
-    J1 = optimize_function(out, N, deg_params, params_c, params_a, tpe)
+    J1, R_value = optimize_function(out, N, deg_params, params_c, params_a, tpe)
     c_c = c_range
     if is_initial_high:
         c_c_t = np.concatenate((np.array([0.8]), c_range))
@@ -745,7 +749,7 @@ for i in range(len(t_limit_list)):
     c_a = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c - params_c["c0"])
     c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
     J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
-                            params_a['particle_size'], params_c['diff'], params_a['diff'], CC))
+                            params_a['particle_size'], params_c['diff'], params_a['diff'], CC, params_c['t_pulse'], R_value, params_c["p"], params_a["p"]))
     print("log(J1) = ", J1, "     J2 = ", J2)
     pareto_save[i, :] = np.array([J1, J2])
 
