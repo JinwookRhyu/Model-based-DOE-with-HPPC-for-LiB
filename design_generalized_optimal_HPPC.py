@@ -599,8 +599,8 @@ diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', del
 
 
 # particle size
-r_c = 1e-7
-r_a = 1e-7
+r_c = 2e-7
+r_a = 2e-7
 # lengths
 L_c = 64e-6
 L_a = 83e-6
@@ -623,8 +623,8 @@ rho_s_c = 3.276e28
 rho_s_a = 1.7438e28
 
 # initial concentration of electrodes
-c_s_0_a = 0.833
-c_s_0_c = 0.167
+c_s_0_a = 0.0142
+c_s_0_c = 0.8595
 
 # rescaling factor to convert particle level current to electrode level
 f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
