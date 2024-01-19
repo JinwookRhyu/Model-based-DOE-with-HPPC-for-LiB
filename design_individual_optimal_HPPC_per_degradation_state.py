@@ -456,8 +456,8 @@ def bound_error(opt_params, N, deg_params, params_c, params_a):
 # ref_params = np.reshape(np.array([0,1,0,1,1]), (1,5))
 
 # particle size
-r_c = 11e-6
-r_a = 17e-6
+r_c = 2e-7
+r_a = 16e-6
 # lengths
 L_c = 64e-6
 L_a = 83e-6
@@ -480,8 +480,8 @@ rho_s_c = 3.276e28
 rho_s_a = 1.7438e28
 
 # initial concentration of electrodes
-c_s_0_a = 0.833
-c_s_0_c = 0.167
+c_s_0_a = 0.0142
+c_s_0_c = 0.8595
 
 # rescaling factor to convert particle level current to electrode level
 f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
@@ -519,7 +519,7 @@ for mm in range(100):
                 # input parameters for electrodes
                 params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c, 'mu': Tesla_NCA_Si,
                     'muR_ref': muR_ref_c}
-                params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+                params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                     'mu': Tesla_graphite,
                     'muR_ref': muR_ref_a}
             else:
@@ -527,7 +527,7 @@ for mm in range(100):
                 params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
                             'mu': Tesla_NCA_Si,
                             'muR_ref': muR_ref_c}
-                params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+                params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                             'mu': Tesla_graphite,
                             'muR_ref': muR_ref_a}
 
