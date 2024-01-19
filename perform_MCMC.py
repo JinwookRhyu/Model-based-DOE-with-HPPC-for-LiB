@@ -137,13 +137,14 @@ for mm in range(100):
 
     str_deg_params = str(deg_params_true[0]) + "_" + str(deg_params_true[1]) + "_" + str(
         deg_params_true[2]) + "_" + str(deg_params_true[3]) + "_" + str(deg_params_true[4])
-
-    with open(dir_txtfile + "/optimized_output_" + str(rxn_method) + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt") as f:
-        contents = f.readlines()
-
-    c_c = np.array([float(i) for i in contents[0].split()[0:N]])
-    c_c = np.round(c_c * 1000) / 1000
-    delta_V = np.array([float(i) for i in contents[0].split()[N:2*N]])
+    
+    if mode == "individual_optimal":
+        with open(dir_txtfile + "/optimized_output_" + str(rxn_method) + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt") as f:
+            contents = f.readlines()
+    
+        c_c = np.array([float(i) for i in contents[0].split()[0:N]])
+        c_c = np.round(c_c * 1000) / 1000
+        delta_V = np.array([float(i) for i in contents[0].split()[N:2*N]])
 
     # Spread walkers
     initial = np.array([deg_params_range[0][0], deg_params_range[0][2], deg_params_range[0][4], deg_params_range[0][6], deg_params_range[0][8]])
