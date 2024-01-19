@@ -378,8 +378,8 @@ def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, partic
 
 def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
     """returns minimum objective function depending on time in hours""" 
-    operation_time_c = np.abs((c_max_c - c_min_c) / CC) * 3600 + np.abs(R_value/(constants.e*cap_c)*t_pulse)
-    operation_time_a = np.abs((c_max_a - c_min_a) / CC) * 3600 + np.abs(R_value/(constants.e*cap_a)*t_pulse)
+    operation_time_c = (np.abs(c_max_c - c_min_c) + np.abs(R_value/(constants.e*cap_c)*t_pulse))/ CC * 3600
+    operation_time_a = (np.abs(c_max_a - c_min_a) + np.abs(R_value/(constants.e*cap_a)*t_pulse))/ CC * 3600
     t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - operation_time_c, np.zeros(c_min_c.shape)) + operation_time_c
     t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - operation_time_a, np.zeros(c_min_c.shape)) + operation_time_a
     return np.maximum(t_c, t_a) / 3600
