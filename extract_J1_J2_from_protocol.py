@@ -10,8 +10,8 @@ import os
 is_balanced = False
 is_initial_high = True
 
-c_range = np.array([0.8, 0.793, 0.737, 0.685, 0.579, 0.559])
-V_values = np.array([-0.2, 0.2, 0.2, -0.15, 0.156, -0.2])
+c_range = np.array([0.8, 0.8, 0.7, 0.7, 0.6, 0.6, 0.5, 0.5, 0.4, 0.4])
+V_values = np.array([-0.2, 0.2, -0.2, 0.2,-0.2, 0.2,-0.2, 0.2,-0.2, 0.2])
 
 N = len(c_range)  # Number of pulses
 
@@ -353,35 +353,22 @@ def find_nearest(array, value):
 # function that gets the max NCA diffusivity in range
 def min_Dc(cmin, cmax, diff_data):
     # maximum diffusivity at a certain point
-    ind = np.argwhere(
-        ((diff_data[:, 0] > cmin) & (diff_data[:, 0] < cmax)) | ((diff_data[:, 0] > cmax) & (diff_data[:, 0] < cmin)))
-    if len(ind) > 0:
-        return np.min(diff_data[ind, 1] * diff_data[ind, 0])
-    else:
-        opt_ind = find_nearest(diff_data[:, 0], (cmin + cmax) / 2)
-        return diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
+    Dc = np.nan * np.ones((len(cmin), ))
+    for k in range(len(cmin)):
+        ind = np.argwhere(
+            ((diff_data[:, 0] > cmin[k]) & (diff_data[:, 0] < cmax[k])) | ((diff_data[:, 0] > cmax[k]) & (diff_data[:, 0] < cmin[k])))
+        if len(ind) > 0:
+            Dc[k] = np.min(diff_data[ind, 1] * diff_data[ind, 0])
+        else:
+            opt_ind = find_nearest(diff_data[:, 0], (cmin[k] + cmax[k]) / 2)
+            Dc[k] =  diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
+    return Dc
 
+def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_value):
+    """returns minimum objective function depending on time in hours"""
+    t_c = alpha_t * np.divide((np.abs(c_max_c - c_min_c) + np.abs(R_value / (constants.e * params_c["p"]) * t_pulse)) * params_c['particle_size'] ** 2, min_Dc(c_min_c, c_max_c, params_c['diff']))
+    t_a = alpha_t * np.divide((np.abs(c_max_a - c_min_a) + np.abs(R_value / (constants.e * params_a["p"]) * t_pulse)) * params_a['particle_size'] ** 2, min_Dc(c_min_a, c_max_a, params_a['diff']))
 
-def t_tot(alpha, cmin, cmax, particle_size, diff_data):
-    """return total time: T+tau_relax it takes to perform the entire segment"""
-    t = np.zeros(cmin.shape)
-    for i in range(len(cmin)):
-        t[i] = alpha * particle_size ** 2 * np.abs(cmax[i] - cmin[i]) / min_Dc(cmin[i], cmax[i], diff_data)
-    return t
-
-
-def tau_relax(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
-    """return tau_relax, relaxation timeit takes to perform the entire segment. we also assume the constant current discharge rate is 1 using the limiting electrode (graphite)"""
-    return np.maximum(time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c,
-                               diff_a, CC, t_pulse, R_value, cap_c, cap_a) - np.abs((c_max_c - c_min_c) / CC) * 3600, np.zeros(c_min_c.shape))
-
-
-def time_obj(alpha, c_min_c, c_max_c, c_min_a, c_max_a, particle_size_c, particle_size_a, diff_c, diff_a, CC, t_pulse, R_value, cap_c, cap_a):
-    """returns minimum objective function depending on time in hours""" 
-    operation_time_c = (np.abs(c_max_c - c_min_c) + np.abs(R_value/(constants.e*cap_c)*t_pulse))/ (CC*np.minimum(cap_c, cap_a)/cap_c) * 3600
-    operation_time_a = (np.abs(c_max_a - c_min_a) + np.abs(R_value/(constants.e*cap_a)*t_pulse))/ (CC*np.minimum(cap_c, cap_a)/cap_a) * 3600
-    t_c = np.maximum(t_tot(alpha, c_min_c, c_max_c, particle_size_c, diff_c) - operation_time_c, np.zeros(c_min_c.shape)) + operation_time_c
-    t_a = np.maximum(t_tot(alpha, c_min_a, c_max_a, particle_size_a, diff_a) - operation_time_a, np.zeros(c_min_c.shape)) + operation_time_a
     return np.maximum(t_c, t_a) / 3600
 
 
@@ -471,8 +458,7 @@ voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, pa
 mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1) # No degradation
 mu_range_a = mu_range_c + voltage_range
 
-J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c['particle_size'],
-                         params_a['particle_size'], params_c['diff'], params_a['diff'], CC, params_c['t_pulse'], R_value, params_c["p"], params_a["p"]))
+J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c, params_a, R_value))
 # correct for voltage shift of mu_range_c and mu_range_a each with the deltaphi correction in Eq. 13 of hppc paper 1
 dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
 mu_range_c = mu_range_c + dPhi

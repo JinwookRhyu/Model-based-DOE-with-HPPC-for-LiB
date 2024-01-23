@@ -74,8 +74,8 @@ for mm in range(100):
     V_limit = 0.050
 
     # particle size
-    r_c = 11e-6
-    r_a = 17e-6
+    r_c = 2e-7
+    r_a = 16e-6
     # lengths
     L_c = 64e-6
     L_a = 83e-6
@@ -98,8 +98,8 @@ for mm in range(100):
     rho_s_a = 1.7438e28
 
     # initial concentration of electrodes
-    c_s_0_a = 0.833
-    c_s_0_c = 0.167
+    c_s_0_a = 0.0142
+    c_s_0_c = 0.8595
 
     # rescaling factor to convert particle level current to electrode level
     f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
@@ -117,7 +117,7 @@ for mm in range(100):
         params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
                     'mu': Tesla_NCA_Si,
                     'muR_ref': muR_ref_c}
-        params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+        params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                     'mu': Tesla_graphite,
                     'muR_ref': muR_ref_a}
     else:
@@ -125,7 +125,7 @@ for mm in range(100):
         params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
                     'mu': Tesla_NCA_Si,
                     'muR_ref': muR_ref_c}
-        params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 5, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+        params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
                     'mu': Tesla_graphite,
                     'muR_ref': muR_ref_a}
 
@@ -137,13 +137,14 @@ for mm in range(100):
 
     str_deg_params = str(deg_params_true[0]) + "_" + str(deg_params_true[1]) + "_" + str(
         deg_params_true[2]) + "_" + str(deg_params_true[3]) + "_" + str(deg_params_true[4])
-
-    with open(dir_txtfile + "/optimized_output_" + str(rxn_method) + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt") as f:
-        contents = f.readlines()
-
-    c_c = np.array([float(i) for i in contents[0].split()[0:N]])
-    c_c = np.round(c_c * 1000) / 1000
-    delta_V = np.array([float(i) for i in contents[0].split()[N:2*N]])
+    
+    if mode == "individual_optimal":
+        with open(dir_txtfile + "/optimized_output_" + str(rxn_method) + "_" + str(tpe) + "_" + str(int(1000 * V_limit)) + "mV_" + str(str_deg_params) + ".txt") as f:
+            contents = f.readlines()
+    
+        c_c = np.array([float(i) for i in contents[0].split()[0:N]])
+        c_c = np.round(c_c * 1000) / 1000
+        delta_V = np.array([float(i) for i in contents[0].split()[N:2*N]])
 
     # Spread walkers
     initial = np.array([deg_params_range[0][0], deg_params_range[0][2], deg_params_range[0][4], deg_params_range[0][6], deg_params_range[0][8]])

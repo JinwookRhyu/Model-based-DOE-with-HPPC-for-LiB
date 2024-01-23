@@ -8,7 +8,7 @@ from pygmo import *
 
 is_balanced = False
 is_initial_high = True
-N = 10 # Number of pulses
+N = 8 # Number of pulses
 
 V_limit = 0.050 # Lower limit for delta_V in [V]
 I_err = 0.0001 # Measurement error of current in [A]
@@ -25,7 +25,7 @@ c_lyte_range = np.array([0.8, 1]) # Range for c_lyte (lb, ub)
 
 t_pulse = 5 # pulse time in seconds
 alpha_t = 1 # Coeff for CC time + relaxation time
-t_limit_list = 3 * np.array([20, 19, 18, 17, 16, 15, 14.75, 14.5, 14.25, 14, 13.75, 13.5, 13.25, 13, 12.75, 12.5, 12.25, 12, 11.75, 11.5, 11.25, 11, 10.75, 10.5, 10.25, 10, 9.75, 9.5, 9.25, 9, 8.75, 8.5, 8.25, 8, 7.75, 7.5, 7.25, 7, 6.75, 6.5, 6.25, 6, 5.75, 5.5, 5.25, 5, 4.75, 4.5, 4.25, 4, 3.9, 3.8, 3.7, 3.6, 3.5, 3.4, 3.3, 3.2, 3.1, 3, 2.9, 2.8, 2.7, 2.6, 2.5, 2.4, 2.3, 2.2, 2.1, 2, 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]) # Time limit for total diagnostics in [hr]
+num_datapoints = 200*N # Number of datapoints for constructing Pareto optimality front
 
 deg_params = np.reshape(np.concatenate((R_f_c_range, c_tilde_c_range, R_f_a_range, c_tilde_a_range, c_lyte_range), axis=0), (1, 10))
 
@@ -83,16 +83,13 @@ def W_hat_average(c, V, R_f, c_tilde, c_lyte, params, mu_c):
     match params["rxn_method"]:
         case "CIET":
             iredoi_val = iredoi(c, V, params, mu_c)
-            #av_W_c_lyte = ((c_lyte[:,1]+0.5*dlnadlnc(1)*(c_lyte[:,1]-2)*c_lyte[:,1]*iredoi_val)-(c_lyte[:,0]+0.5*dlnadlnc(1)*(c_lyte[:,0]-2)*c_lyte[:,0]*iredoi_val))/(c_lyte[:,1]-c_lyte[:,0])
             av_W_c_lyte = 1 + 0.5 * dlnadlnc(1) * (-2 + c_lyte[:,1] + c_lyte[:,0])* iredoi_val
             av_W_c_tilde = (1 + 1) ** (-1) * (1 - c) ** (-1) * (
                         (c_tilde[:, 1] - c) ** (1 + 1) - (c_tilde[:, 0] - c) ** (1 + 1)) / (
                                        c_tilde[:, 1] - c_tilde[:, 0])
         case "BV":
             kinetic_h = dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) *dlnadlnc(1)
-           # av_W_c_lyte = (((-0.4*c_lyte[:,1]**2.5-2/3*c_lyte[:,1]**1.5)*dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) *dlnadlnc(1)+2/3*c_lyte[:,1]**1.5)-((-0.4*c_lyte[:,0]**2.5-2/3*c_lyte[:,0]**1.5)*dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) *dlnadlnc(1)+2/3*c_lyte[:,0]**1.5))/(c_lyte[:,1]-c_lyte[:,0])
             av_W_c_lyte = (0.4*c_lyte[:,0]**2.5*kinetic_h - 0.4*c_lyte[:,1]**2.5*kinetic_h - 2/3*c_lyte[:,0]**1.5*(1+kinetic_h) + 2/3*c_lyte[:,1]**1.5*(1+kinetic_h))/(c_lyte[:,1]-c_lyte[:,0])
-    #        print("rxn", R(c, V, params, mu_c, 1))
             av_W_c_tilde = (1+0.5)**(-1)*(1-c)**(-0.5)*((c_tilde[:,1]-c)**(1+0.5)-(c_tilde[:,0]-c)**(1+0.5))/(c_tilde[:,1]-c_tilde[:,0])
     return av_W_R_f, av_W_c_tilde, av_W_c_lyte
    
@@ -159,13 +156,10 @@ def dideta(c, mures, params, mu_c):
     muh = np.reshape(mu_c(c, params["muR_ref"]), [1, -1])
     eta = muh - mures
     etaf = eta - np.log(c)
-    #   print("eta", eta, etaf)
     match params["rxn_method"]:
         case "BV":
-            # it's actually dhdeta for BV, too laz to write anotuerh f(x)
             out = params["k0"] * (1 - c) ** 0.5 * c ** 0.5 * (
                         -0.5 * np.exp(-0.5 * eta) - (1 - 0.5) * np.exp((1 - 0.5) * eta))
-        #   %temporary
         case "CIET":
             out = params["k0"] * (1 - c) * (
                         - dhelper_fundetaf(-etaf, params["lambda"]) - c * dhelper_fundetaf(etaf, params["lambda"]))
@@ -247,7 +241,6 @@ def R(c, mures, params, mu_c, c_lyte):
 def W_initial(c_c, c_a, mu, params_c, params_a, c_lyte):
     """finds initial values of phi while keeping the current constraint for all mu values given"""
     mu_value = np.zeros(len(c_c))
-    R_value = np.zeros(len(c_c))
     for i in range(len(c_c)):
         opt = fsolve(W_obj, Tesla_NCA_Si(c_c[i], params_c["muR_ref"]), (c_c[i], c_a[i], mu[i], params_c, params_a, c_lyte))
         mu_value[i] = opt[0]
@@ -358,10 +351,6 @@ def get_OCV_from_muR(mu, muR_ref):
     eokT = constants.e / (constants.k * 298)
     return -1 / eokT * (mu - muR_ref)
 
-
-from math import ceil, floor, pow
-
-
 # Function to round - off the number
 def Round_off(N, n):
     """To fix the number of significant digits of matrix N to n"""
@@ -430,7 +419,6 @@ def min_Dc(cmin, cmax, diff_data):
             opt_ind = find_nearest(diff_data[:, 0], (cmin[k] + cmax[k]) / 2)
             Dc[k] =  diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
     return Dc
-
 
 def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_value):
     """returns minimum objective function depending on time in hours"""
@@ -555,12 +543,8 @@ def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
 # set degradation parameters
 
 #load NCA/graphite diffusivities
-#diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter = ',')
-diffNCA = 10**np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter = ',')
+diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter = ',')
 diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter = ',')
-
-#particle_size_c = 0.24e-6
-#particle_size_a = 16e-6
 
 
 # particle size
@@ -626,37 +610,35 @@ else:
 # print("Optimum Parameters: c: ", out[:N], "; V: ", get_OCV_from_muR(out[N:], 0), "; value: ", optimize_function(out, N, ref_params, params_c, params_a, tpe))
 
 class uncertainty_function:
-    def __init__(self, N, idx):
+    def __init__(self, N):
         self.N = N
         self.dim = 2 * N + 1
-        self.idx = idx
 
     def fitness(self, x):
         N = self.N
-        idx = self.idx
         if is_initial_high:
             c_range = 0.8 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.4 - 0.8)
         else:
             c_range = 0.4 + np.cumsum(x[:N]) / np.sum(x[:N + 1]) * (0.8 - 0.4)
         c_range = np.round(c_range * 1000) / 1000
-        c_c = c_range
         if is_initial_high:
             c_c_t = np.concatenate((np.array([0.8]), c_range))
         else:
             c_c_t = np.concatenate((np.array([0.4]), c_range))
         c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"])
-        pulse_range = x[-N:]
 
-        obj, R_value = optimize_function(x, N, deg_params, params_c, params_a, tpe)
-        ci1 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c, params_a, R_value)) - t_limit_list[idx]
+        obj1, R_value = optimize_function(x, N, deg_params, params_c, params_a, tpe)
+        obj2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c, params_a, R_value))
 
-        return [obj, ci1]
+        return [obj1, obj2]
 
     def get_bounds(self):
         N = self.N
         return ([0.0001] * (N + 1) + [-0.2+V_limit] * N, [1] * (N + 1) + [0.2-V_limit] * N)
+    def get_nobj(self):
+        return 2
     def get_nic(self):
-        return 1
+        return 0
     def get_nec(self):
         return 0
     def gradient(self, x):
@@ -669,27 +651,21 @@ class uncertainty_function:
 
 
 # saves error for each variable
-error_save = np.zeros((len(t_limit_list), 5))*np.nan
+error_save = np.zeros((num_datapoints, 5))*np.nan
 # saves SOC and voltage values for each pulse
-optimization_save = np.zeros((len(t_limit_list), 2*N))*np.nan
+optimization_save = np.zeros((num_datapoints, 2*N))*np.nan
 # saves rest time in between pulses
-time_save = np.ones((len(t_limit_list), N)) * np.nan
-pareto_save = np.ones((len(t_limit_list), 2))*np.nan
+time_save = np.ones((num_datapoints, N)) * np.nan
+pareto_save = np.ones((num_datapoints, 2))*np.nan
 
-for i in range(len(t_limit_list)):
-    # optimal
 
-    # we wnat N_pulses
-    # generate initial condition from "best guess"
-    # initial_condition
+algo = algorithm(ihs(N*10000))
+algo.set_verbosity(2000)
+pop = pg.population(prob=uncertainty_function(N), size=num_datapoints, seed=42)
+pop = algo.evolve(pop)
 
-    algo = algorithm(ihs(50000))
-    algo.set_verbosity(2000)
-    pop = pg.population(prob=uncertainty_function(N, i), size=5, seed=42)
-    pop.problem.c_tol = [0] * 1
-    pop = algo.evolve(pop)
-
-    out = pop.champion_x
+for i in range(num_datapoints):
+    out = pop.get_x()[i]
     if is_initial_high:
         c_range = 0.8 + np.cumsum(out[:N]) / np.sum(out[:N+1]) * (0.4 - 0.8)
     else:
@@ -698,7 +674,7 @@ for i in range(len(t_limit_list)):
     optimization_save[i, :N] = c_range
     dV = np.multiply(out[-N:] + V_limit, out[-N:] > 0) + np.multiply(out[-N:] - V_limit, out[-N:] < 0)
     dV = np.round(dV * 1000) / 1000
-    optimization_save[i, N:2 * N] = dV
+    optimization_save[i, N:2*N] = dV
     error_save[i, :] = bound_error(out, N, deg_params, params_c, params_a, tpe)
     J1, R_value = optimize_function(out, N, deg_params, params_c, params_a, tpe)
     c_c = c_range
@@ -714,6 +690,7 @@ for i in range(len(t_limit_list)):
           time_save[i, :N])
     print("Error: ", bound_error(out, N, deg_params, params_c, params_a, tpe))
     J2 = np.sum(time_save[i, :N])
+
     print("log(J1) = ", J1, "     J2 = ", J2)
     pareto_save[i, :] = np.array([J1, J2])
 
