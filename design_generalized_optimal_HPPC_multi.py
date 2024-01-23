@@ -8,7 +8,7 @@ from pygmo import *
 
 is_balanced = False
 is_initial_high = True
-N = 5 # Number of pulses
+N = 8 # Number of pulses
 
 V_limit = 0.050 # Lower limit for delta_V in [V]
 I_err = 0.0001 # Measurement error of current in [A]
@@ -409,13 +409,16 @@ def find_nearest(array, value):
 # function that gets the max NCA diffusivity in range
 def min_Dc(cmin, cmax, diff_data):
     # maximum diffusivity at a certain point
-    ind = np.argwhere(
-        ((diff_data[:, 0] > cmin) & (diff_data[:, 0] < cmax)) | ((diff_data[:, 0] > cmax) & (diff_data[:, 0] < cmin)))
-    if len(ind) > 0:
-        return np.min(diff_data[ind, 1] * diff_data[ind, 0])
-    else:
-        opt_ind = find_nearest(diff_data[:, 0], (cmin + cmax) / 2)
-        return diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
+    Dc = np.nan * np.ones((len(cmin), ))
+    for k in range(len(cmin)):
+        ind = np.argwhere(
+            ((diff_data[:, 0] > cmin[k]) & (diff_data[:, 0] < cmax[k])) | ((diff_data[:, 0] > cmax[k]) & (diff_data[:, 0] < cmin[k])))
+        if len(ind) > 0:
+            Dc[k] = np.min(diff_data[ind, 1] * diff_data[ind, 0])
+        else:
+            opt_ind = find_nearest(diff_data[:, 0], (cmin[k] + cmax[k]) / 2)
+            Dc[k] =  diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
+    return Dc
 
 def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_value):
     """returns minimum objective function depending on time in hours"""
