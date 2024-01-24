@@ -7,8 +7,8 @@ import pygmo as pg
 from pygmo import *
 
 is_balanced = False
-is_initial_high = True
-N = 8 # Number of pulses
+is_initial_high = False
+N = 5 # Number of pulses
 
 V_limit = 0.050 # Lower limit for delta_V in [V]
 I_err = 0.0001 # Measurement error of current in [A]
@@ -33,14 +33,14 @@ str_deg_params = str(deg_params[0][0]) + "_" + str(deg_params[0][1]) + "_" + str
 
 if is_balanced:
     if is_initial_high:
-        savedir = os.getcwd() + "/pareto_" + str(tpe) + "_N" + str(N) + "_balanced_high"
+        savedir = os.getcwd() + "/pareto_multi_" + str(tpe) + "_N" + str(N) + "_balanced_high"
     else:
-        savedir = os.getcwd() + "/pareto_" + str(tpe) + "_N" + str(N) + "_balanced_low"
+        savedir = os.getcwd() + "/pareto_multi_" + str(tpe) + "_N" + str(N) + "_balanced_low"
 else:
     if is_initial_high:
-        savedir = os.getcwd() + "/pareto_" + str(tpe) + "_N" + str(N) + "_unbalanced_high"
+        savedir = os.getcwd() + "/pareto_multi_" + str(tpe) + "_N" + str(N) + "_unbalanced_high"
     else:
-        savedir = os.getcwd() + "/pareto_" + str(tpe) + "_N" + str(N) + "_unbalanced_low"
+        savedir = os.getcwd() + "/pareto_multi_" + str(tpe) + "_N" + str(N) + "_unbalanced_low"
 
 if not os.path.exists(savedir):
     os.mkdir(savedir)
