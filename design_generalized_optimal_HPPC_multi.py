@@ -543,7 +543,8 @@ def bound_error(opt_params, N, deg_params, params_c, params_a, tpe):
 # set degradation parameters
 
 #load NCA/graphite diffusivities
-diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter = ',')
+#diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter = ',')
+diffNCA = 10**np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter = ',')
 diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter = ',')
 
 
