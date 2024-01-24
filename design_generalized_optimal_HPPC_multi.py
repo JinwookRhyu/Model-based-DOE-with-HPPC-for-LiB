@@ -698,5 +698,5 @@ for i in range(num_datapoints):
 
 np.savetxt(savedir + "/optimized_output_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", optimization_save)
 np.savetxt(savedir + "/error_bound_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", error_save)
-np.savetxt(savedir + "/tau_relax_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", time_save)
+np.savetxt(savedir + "/time_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_" + str(str_deg_params) + ".txt", time_save)
 np.savetxt(savedir + "/pareto_" + params_c["rxn_method"] + "_" + str(tpe) + "_" + str(int(1000*V_limit)) + "mV_"+ str(str_deg_params) + ".txt", pareto_save)
