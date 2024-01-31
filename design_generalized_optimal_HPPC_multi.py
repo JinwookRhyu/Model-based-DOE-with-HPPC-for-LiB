@@ -6,9 +6,9 @@ import os
 import pygmo as pg
 from pygmo import *
 
-is_balanced_list = [False, False, True, True, False, False, False, False, False]
-is_initial_high_list = [True, False, True, False, True, True, True, True, True]
-N_list = [5, 5, 5, 5, 6, 7, 8, 9, 10]
+is_balanced_list = [False, False, True, True, False, False, False, False, False, False, False]
+is_initial_high_list = [True, False, True, False, True, True, True, True, True, True, True]
+N_list = [5, 5, 5, 5, 6, 7, 8, 9, 10, 11, 12]
 
 for n in range(len(N_list)):
 
@@ -584,8 +584,8 @@ for n in range(len(N_list)):
     c_s_0_c = 0.8595
 
     # rescaling factor to convert particle level current to electrode level
-    f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
-    f_a = L_a * (1 - poros_a) * P_L_a * 1 / r_a
+    f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
+    f_a = L_a * (1 - poros_a) * P_L_a * 3 / r_a
 
     # rescaling factor to balance electrode concentrations
     p_c = L_c * (1 - poros_c) * P_L_c * rho_s_c
