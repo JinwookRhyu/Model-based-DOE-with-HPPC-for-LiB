@@ -17,7 +17,7 @@ for n in range(len(N_list)):
     N = int(N_list[n])
 
     V_limit = 0.050 # Lower limit for delta_V in [V]
-    I_err = 0.0001 # Measurement error of current in [A]
+    I_err = 0.0003 # Measurement error of current in [A]
     tpe = "D"
     rxn_method = "CIET"
     sig_digits = 4
