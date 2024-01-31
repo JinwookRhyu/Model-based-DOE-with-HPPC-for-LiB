@@ -12,7 +12,7 @@ is_initial_high = True
 N = 5 # Number of pulses
 
 V_limit = 0.050 # Lower limit for delta_V in [V]
-I_err = 0.0001 # Measurement error of current in [A]
+I_err = 0.0003 # Measurement error of current in [A]
 tpe = "D"
 rxn_method = "CIET"
 sig_digits = 4
@@ -484,8 +484,8 @@ c_s_0_a = 0.0142
 c_s_0_c = 0.8595
 
 # rescaling factor to convert particle level current to electrode level
-f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
-f_a = L_a * (1 - poros_a) * P_L_a * 1 / r_a
+f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
+f_a = L_a * (1 - poros_a) * P_L_a * 3 / r_a
 
 # rescaling factor to balance electrode concentrations
 p_c = L_c * (1 - poros_c) * P_L_c * rho_s_c
