@@ -10,13 +10,15 @@ import os
 is_balanced = False
 is_initial_high = True
 
-c_range = np.array([0.8, 0.8, 0.7, 0.7, 0.6, 0.6, 0.5, 0.5, 0.4, 0.4])
-V_values = np.array([-0.2, 0.2, -0.2, 0.2,-0.2, 0.2,-0.2, 0.2,-0.2, 0.2])
+c_range = np.array([8.00E-01,	8.00E-01,	8.00E-01,	6.82E-01,	6.56E-01,	5.88E-01,	5.48E-01,	4.01E-01,	4.00E-01,	4.00E-01
+])
+V_values = np.array([-2.00E-01,	-1.12E-01,	-2.00E-01,	-2.00E-01,	-2.00E-01,	1.99E-01,	2.00E-01,	-2.00E-01,	-2.00E-01,	2.00E-01
+])
 
 N = len(c_range)  # Number of pulses
 
 V_limit = 0.050  # Lower limit for delta_V in [V]
-I_err = 0.0001  # Measurement error of current in [A]
+I_err = 0.0003  # Measurement error of current in [A]
 tpe = "D"
 rxn_method = "CIET"
 sig_digits = 4
@@ -375,8 +377,7 @@ def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_
 # set degradation parameters
 
 # load NCA/graphite diffusivities
-#diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter=',')
-diffNCA = 10**np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter = ',')
+diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter=',')
 diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter=',')
 
 # particle_size_c = 0.24e-6

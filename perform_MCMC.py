@@ -11,9 +11,10 @@ import os
 n_processes = 12 # number of cores for multiprocessing
 is_balanced = False
 saveplot = True
-mode = "individual_optimal"
-I_err = 0.0001
-V_limit = 0.050
+mode = "standard"
+N = 10
+I_err = 0.0003
+V_limit =  0.050
 tpe = "D" # Optimality criterion "A" / "D" / "E"
 rxn_method = "CIET" # "CIET" / "BV"
 
@@ -22,11 +23,11 @@ if mode == "standard":
     delta_V = np.array([0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2])
 elif mode == "generalized_optimal": # The generalized optimal HPPC protocol depends on the degradation parameter ranges
     # TODO: Replace these values to the actual generalized optimal HPPC protocol
-    c_c = np.array([8.00E-01, 7.53E-01, 7.07E-01, 6.85E-01, 6.41E-01, 6.38E-01, 6.28E-01])
-    delta_V = np.array([-2.00E-01, 2.00E-01, -1.51E-01, -1.42E-01, 1.46E-01, 1.44E-01, -2.00E-01])
+    c_c = np.array([8.00E-01, 8.00E-01, 8.00E-01, 6.82E-01, 6.56E-01, 5.88E-01, 5.48E-01, 4.01E-01, 4.00E-01, 4.00E-01])
+    delta_V = np.array([-2.00E-01, -1.12E-01, -2.00E-01, -2.00E-01, -2.00E-01, 1.99E-01, 2.00E-01, -2.00E-01, -2.00E-01, 2.00E-01])
 elif mode == "individual_optimal": # The individual optimal HPPC protocol depends on the degradation parameter values. Just set nan arrays at this moment.
-    c_c = np.nan * np.ones((5,))
-    delta_V = np.nan * np.ones((5,))
+    c_c = np.nan  * np.ones((N,))
+    delta_V = np.nan * np.ones((N,))
 N = len(c_c) # Number of pulses
 
 # Lower and upper limits for degradation parameters in R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte order
@@ -44,6 +45,7 @@ str_deg_params_range = str(deg_params_range[0][0]) + "_" + str(deg_params_range[
                         "_" + str(deg_params_range[0][4]) + "_" + str(deg_params_range[0][5]) + "_" + str(deg_params_range[0][6]) + "_" + str(deg_params_range[0][7]) + \
                          "_" + str(deg_params_range[0][8]) + "_" + str(deg_params_range[0][9])
 
+
 # Directory for saving MCMC figures and autocorrelation figures
 if is_balanced:
     dir_savefig = os.getcwd() + "/I_err_" + str(I_err) + "_" + mode + "_N" + str(N) + "_" + str_deg_params_range + "_balanced"
@@ -59,7 +61,7 @@ if not os.path.exists(dir_savefig):
 results={}
 ii = 0
 
-for mm in range(100):
+for mm in range(1):
     rng = np.random.RandomState(mm)
     deg_params_true = deg_params_lower + np.multiply((deg_params_upper - deg_params_lower), rng.uniform(0, 1, 5))
     deg_params_true = np.round(deg_params_true * 1000) / 1000
@@ -102,8 +104,8 @@ for mm in range(100):
     c_s_0_c = 0.8595
 
     # rescaling factor to convert particle level current to electrode level
-    f_c = L_c * (1 - poros_c) * P_L_c * 1 / r_c
-    f_a = L_a * (1 - poros_a) * P_L_a * 1 / r_a
+    f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
+    f_a = L_a * (1 - poros_a) * P_L_a * 3 / r_a
 
     # rescaling factor to balance electrode concentrations
     p_c = L_c * (1 - poros_c) * P_L_c * rho_s_c
