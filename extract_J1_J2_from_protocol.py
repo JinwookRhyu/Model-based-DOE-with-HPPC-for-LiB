@@ -378,7 +378,7 @@ def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_
 # set degradation parameters
 
 # load NCA/graphite diffusivities
-diffNCA = np.loadtxt('diffusion_carelli_et_all/NCA_diffusion.txt', delimiter=',')
+diffNCA = np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter=',')
 diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter=',')
 
 # particle_size_c = 0.24e-6
