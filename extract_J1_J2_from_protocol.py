@@ -368,8 +368,9 @@ def min_Dc(cmin, cmax, diff_data):
 
 def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_value):
     """returns minimum objective function depending on time in hours"""
-    t_c = alpha_t * np.divide((np.abs(c_max_c - c_min_c) + np.abs(R_value / (constants.e * params_c["p"]) * t_pulse)) * params_c['particle_size'] ** 2, min_Dc(c_min_c, c_max_c, params_c['diff']))
-    t_a = alpha_t * np.divide((np.abs(c_max_a - c_min_a) + np.abs(R_value / (constants.e * params_a["p"]) * t_pulse)) * params_a['particle_size'] ** 2, min_Dc(c_min_a, c_max_a, params_a['diff']))
+    R_value_prev = np.concatenate((np.array([0]), R_value[:-1]))
+    t_c = alpha_t * np.divide((np.abs(c_max_c - c_min_c) + np.abs(R_value_prev / (constants.e * params_c["p"]) * t_pulse)) * params_c['particle_size'] ** 2, min_Dc(c_min_c, c_max_c, params_c['diff']))
+    t_a = alpha_t * np.divide((np.abs(c_max_a - c_min_a) + np.abs(R_value_prev / (constants.e * params_a["p"]) * t_pulse)) * params_a['particle_size'] ** 2, min_Dc(c_min_a, c_max_a, params_a['diff']))
 
     return np.maximum(t_c, t_a) / 3600
 
