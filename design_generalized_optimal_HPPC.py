@@ -395,28 +395,6 @@ for n in range(len(N_list)):
         A = np.multiply(sgn, np.divide(np.round(A), 10 ** d))
         return A
 
-    def delPhi(deg_params, c_c, c_a, V_c, V_a, params_c, params_a, icellbar):
-        """solves overall W from the linear weight equation"""
-        # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-        """Return delta Phi correction (Eq. 13) of HPPC paper to shift both anode and cathode potentials. we need to take
-        the average of dPhi over the degradation range, which means the average over Whats for cathode and anode"""
-        R_f_c = deg_params[:, 0:2]
-        c_tilde_c = deg_params[:, 2:4]
-        R_f_a = deg_params[:, 4:6]
-        c_tilde_a = deg_params[:, 6:8]
-        c_lyte = deg_params[:, 8:10]
-        av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
-        W_c_hat = av_W_R_f*av_W_c_tilde*av_W_c_lyte
-        av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
-        W_a_hat = av_W_R_f*av_W_c_tilde*av_W_c_lyte
-        # we should have different mures
-        dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
-        f_c_a = params_c["f"] / params_a["f"]
-        # set initial icell with no degradation
-        dPhi = (W_c_hat - W_a_hat) / (params_a["f"]*dideta(c_a, V_a, params_a, Tesla_graphite) + params_c["f"]*dideta(c_c, V_c, params_c, Tesla_NCA_Si)) * icellbar
-        return dPhi
-
-
     def find_nearest(array, value):
         array = np.asarray(array)
         idx = (np.abs(array - value)).argmin()
@@ -480,10 +458,6 @@ for n in range(len(N_list)):
         # solve for the initial voltage pulses
         mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1) # No degradation
         mu_range_a = mu_range_c + voltage_range
-        # correct for voltage shift of mu_range_c and mu_range_a each with the deltaphi correction in Eq. 13 of hppc paper 1
-        dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
-        mu_range_c = mu_range_c + dPhi
-        mu_range_a = mu_range_a + dPhi
         # using the current constraint equations, solve for both cathode and anode
         # how do we know how much degradation is happening??? help.
         # stack degradatio parameters so that we have a 5*1*1 matrix, where each set only has one degradation parameter
@@ -543,9 +517,6 @@ for n in range(len(N_list)):
         # solve for the initial voltage pulses
         mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1)
         mu_range_a = mu_range_c + voltage_range
-        dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
-        mu_range_c = mu_range_c + dPhi
-        mu_range_a = mu_range_a + dPhi
         # using the current constraint equations, solve for both cathode and anode
         # how do we know how much degradation is happening??? help.
         # stack degradatio parameters so that we have a 5*1*1 matrix, where each set only has one degradation parameter
