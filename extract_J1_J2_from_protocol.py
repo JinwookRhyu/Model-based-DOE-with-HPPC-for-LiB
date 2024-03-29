@@ -2,6 +2,7 @@ import numpy as np
 from scipy import constants
 from scipy.special import erf
 from scipy.optimize import fsolve
+from pyDOE3 import *
 import os
 
 # import pygmo as pg
@@ -10,12 +11,11 @@ import os
 is_balanced = False
 is_initial_high = True
 
-c_range = np.array([8.00E-01,	8.00E-01,	8.00E-01,	6.82E-01,	6.56E-01,	5.88E-01,	5.48E-01,	4.01E-01,	4.00E-01,	4.00E-01
-])
-V_values = np.array([-2.00E-01,	-1.12E-01,	-2.00E-01,	-2.00E-01,	-2.00E-01,	1.99E-01,	2.00E-01,	-2.00E-01,	-2.00E-01,	2.00E-01
-])
+c_range = np.array([8.00E-01,7.41E-01,7.07E-01,6.53E-01,6.45E-01,5.87E-01,5.30E-01,4.72E-01,4.18E-01,4.17E-01])
+V_values = np.array([-2.00E-01,-2.00E-01,-2.00E-01,1.99E-01,2.00E-01,2.00E-01,-2.00E-01,-2.00E-01,-2.00E-01,2.00E-01])
 
 N = len(c_range)  # Number of pulses
+num_meshpoints = 1000
 
 V_limit = 0.050  # Lower limit for delta_V in [V]
 I_err = 0.0003  # Measurement error of current in [A]
@@ -38,7 +38,7 @@ deg_params = np.reshape(
     np.concatenate((R_f_c_range, c_tilde_c_range, R_f_a_range, c_tilde_a_range, c_lyte_range), axis=0), (1, 10))
 
 
-def W_hat(c, V, R_f, c_tilde, c_lyte, params, mu_c):
+def W_hat(deg_params, c_c, c_a, V_c, V_a, params_c, params_a, mu_c, mu_a):
     """Defines W_hat value for half cell electrode:
     Inputs: c: state of charge
     V: voltage
@@ -49,61 +49,40 @@ def W_hat(c, V, R_f, c_tilde, c_lyte, params, mu_c):
     mu_c: functional form of OCV
     Returns: W_hat value for this half cell"""
 
-    match params["rxn_method"]:
+    R_f_c = deg_params[0, :, :]
+    c_tilde_c = deg_params[1, :, :]
+    R_f_a = deg_params[2, :, :]
+    c_tilde_a = deg_params[3, :, :]
+    c_lyte = deg_params[4, :, :]
+
+    match params_c["rxn_method"]:
         case "BV":
-            return ((c_tilde - c) / (1 - c)) ** 0.5 * (1 / (1 - R_f * dideta(c, V, params, mu_c))) * a_plus(
-                c_lyte) ** 0.5 * (
-                           1 + dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) * (1 - c_lyte) * dlnadlnc(1))
+            W_c_hat = np.multiply(np.multiply(((c_tilde_c - c_c) / (1 - c_c)) ** 0.5,
+                                              (1 / (1 - R_f_c * dideta(c_c, V_c, params_c, mu_c)))),
+                                  np.multiply(a_plus(c_lyte) ** 0.5, (
+                                          1 + dideta(c_c, V_c, params_c, mu_c) / R(c_c, V_c, params_c, mu_c, 1) * (
+                                              1 - c_lyte) * dlnadlnc(1))))
+            W_a_hat = np.multiply(np.multiply(((c_tilde_a - c_a) / (1 - c_a)) ** 0.5, (
+                    1 / (1 - R_f_a * dideta(c_a, V_a, params_a, mu_a)))), np.multiply(a_plus(c_lyte) ** 0.5, (
+                    1 + dideta(c_a, V_a, params_a, mu_a) / R(c_a, V_a, params_a, mu_a, 1) * (
+                    1 - c_lyte) * dlnadlnc(1))))
         # CIET
         case "CIET":
-            return (c_tilde - c) / (1 - c) * (1 / (1 - R_f * dideta(c, V, params, mu_c))) * (
-                    1 - (1 - c_lyte) * iredoi(c, V, params, mu_c) * dlnadlnc(1))
+            W_c_hat = np.multiply(
+                np.multiply((c_tilde_c - c_c) / (1 - c_c), (1 / (1 - R_f_c * dideta(c_c, V_c, params_c, mu_c)))), (
+                        1 - (1 - c_lyte) * iredoi(c_c, V_c, params_c, mu_c) * dlnadlnc(1)))
+            W_a_hat = np.multiply(
+                np.multiply((c_tilde_a - c_a) / (1 - c_a), (1 / (1 - R_f_a * dideta(c_a, V_a, params_a, mu_a)))), (
+                        1 - (1 - c_lyte) * iredoi(c_a, V_a, params_a, mu_a) * dlnadlnc(1)))
+
+    dideta_c_a = dideta(c_c, V_c, params_c, mu_c) / dideta(c_a, V_a, params_a, mu_a)
+    f_c_a = params_c["f"] / params_a["f"]
+    W = (W_c_hat + W_a_hat * f_c_a * dideta_c_a) / (1 + f_c_a * dideta_c_a)
+
+    return W
 
 
-def W_hat_average(c, V, R_f, c_tilde, c_lyte, params, mu_c):
-    """Defines W_hat value for half cell electrode:
-    Inputs: c: state of charge
-    V: voltage
-    R_f: film resistance
-    c_tilde: rescaled capacity
-    c_lyte: electrolyte concentration
-    params: parameters related to electrode
-    mu_c: functional form of OCV
-    Returns: W_hat value for this half cell"""
-    # print an array of things that influence
-    di = dideta(c, V, params, mu_c)
-    #   print("LI di", dideta(c, V, params, mu_c), "iredoi", iredoi(c, V, params, mu_c))
-    av_W_R_f = np.log((1 - di * R_f[:, 1]) / (1 - di * R_f[:, 0])) / (di * (R_f[:, 0] - R_f[:, 1]))
-    # R_f_array = np.linspace(R_f[:,0], R_f[:,1])
-    # c_lyte_array = np.linspace(c_lyte[:,0], c_lyte[:,1])
-    # c_tilde_array = np.linspace(c_tilde[:,0], c_tilde[:,1])
-    # print("averaged What R_f", np.average(W_hat(c, V, R_f_array, 1, 1, params, mu_c), 0))
-    # print("averaged What c_lyte", np.average(W_hat(c, V, 0, 1, c_lyte_array, params, mu_c), 0))
-    # print("averaged What c_tilde", np.average(W_hat(c, V, 0, c_tilde_array, 1, params, mu_c), 0))
-    match params["rxn_method"]:
-        case "CIET":
-            iredoi_val = iredoi(c, V, params, mu_c)
-            # av_W_c_lyte = ((c_lyte[:,1]+0.5*dlnadlnc(1)*(c_lyte[:,1]-2)*c_lyte[:,1]*iredoi_val)-(c_lyte[:,0]+0.5*dlnadlnc(1)*(c_lyte[:,0]-2)*c_lyte[:,0]*iredoi_val))/(c_lyte[:,1]-c_lyte[:,0])
-            av_W_c_lyte = 1 + 0.5 * dlnadlnc(1) * (-2 + c_lyte[:, 1] + c_lyte[:, 0]) * iredoi_val
-            av_W_c_tilde = (1 + 1) ** (-1) * (1 - c) ** (-1) * (
-                    (c_tilde[:, 1] - c) ** (1 + 1) - (c_tilde[:, 0] - c) ** (1 + 1)) / (
-                                   c_tilde[:, 1] - c_tilde[:, 0])
-        case "BV":
-            kinetic_h = dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) * dlnadlnc(1)
-            # av_W_c_lyte = (((-0.4*c_lyte[:,1]**2.5-2/3*c_lyte[:,1]**1.5)*dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) *dlnadlnc(1)+2/3*c_lyte[:,1]**1.5)-((-0.4*c_lyte[:,0]**2.5-2/3*c_lyte[:,0]**1.5)*dideta(c, V, params, mu_c) / R(c, V, params, mu_c, 1) *dlnadlnc(1)+2/3*c_lyte[:,0]**1.5))/(c_lyte[:,1]-c_lyte[:,0])
-            av_W_c_lyte = (0.4 * c_lyte[:, 0] ** 2.5 * kinetic_h - 0.4 * c_lyte[:,
-                                                                         1] ** 2.5 * kinetic_h - 2 / 3 * c_lyte[:,
-                                                                                                         0] ** 1.5 * (
-                                       1 + kinetic_h) + 2 / 3 * c_lyte[:, 1] ** 1.5 * (1 + kinetic_h)) / (
-                                      c_lyte[:, 1] - c_lyte[:, 0])
-            #        print("rxn", R(c, V, params, mu_c, 1))
-            av_W_c_tilde = (1 + 0.5) ** (-1) * (1 - c) ** (-0.5) * (
-                        (c_tilde[:, 1] - c) ** (1 + 0.5) - (c_tilde[:, 0] - c) ** (1 + 0.5)) / (
-                                       c_tilde[:, 1] - c_tilde[:, 0])
-    return av_W_R_f, av_W_c_tilde, av_W_c_lyte
-
-
-def dW_hat_averaged(c, V, R_f, c_tilde, c_lyte, params, mu_c):
+def dW_hat(c, V, R_f_list, c_tilde_list, c_lyte_list, params, mu):
     """Defines W_hat value for half cell electrode:
     Inputs: c: state of charge
     V: voltage
@@ -114,19 +93,36 @@ def dW_hat_averaged(c, V, R_f, c_tilde, c_lyte, params, mu_c):
     mu_c: functional form of OCV
     Returns: components of sensitivity matrix [dW/dR_f; dWdc_tilde; dWdc_lyte] for this half cell.
     The full cell version needs to be reassembled from the weighed version."""
-    av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c, V, R_f, c_tilde, c_lyte, params, mu_c)
-    # print("hi", av_W_R_f, av_W_c_tilde, av_W_c_lyte)
-    # print("non av vals",  1/ (R_f[:,1]-R_f[:,0]) * (W_hat(c, V, R_f[:,1], 1, 1, params, mu_c) - W_hat(c, V, R_f[:,0], 1, 1, params, mu_c)), 1/ (c_tilde[:,1]-c_tilde[:,0]) * (W_hat(c, V, 0, c_tilde[:,1], 1, params, mu_c) - W_hat(c, V, 0, c_tilde[:,0], 1, params, mu_c)), 1/ (c_lyte[:,1]-c_lyte[:,0]) * (W_hat(c, V, 0, 1, c_lyte[:,1], params, mu_c) - W_hat(c, V, 0, 1, c_lyte[:,0], params, mu_c)))
-    dWdRf = av_W_c_lyte * av_W_c_tilde / (R_f[:, 1] - R_f[:, 0]) * (
-                W_hat(c, V, R_f[:, 1], 1, 1, params, mu_c) - W_hat(c, V, R_f[:, 0], 1, 1, params, mu_c))
-    dWdctilde = av_W_R_f * av_W_c_lyte / (c_tilde[:, 1] - c_tilde[:, 0]) * (
-                W_hat(c, V, 0, c_tilde[:, 1], 1, params, mu_c) - W_hat(c, V, 0, c_tilde[:, 0], 1, params, mu_c))
-    dWdclyte = av_W_R_f * av_W_c_tilde / (c_lyte[:, 1] - c_lyte[:, 0]) * (
-                W_hat(c, V, 0, 1, c_lyte[:, 1], params, mu_c) - W_hat(c, V, 0, 1, c_lyte[:, 0], params, mu_c))
-    output = np.vstack((np.vstack((dWdRf, dWdctilde)), dWdclyte))
-    # print("out", output)
-    return output
 
+    # print an array of things that influence
+    match params["rxn_method"]:
+        case "CIET":
+            #    print("dideta", dideta(c, V, params, mu_c))
+            dWdRf = np.multiply(np.divide(dideta(c, V, params, mu), (1 - R_f_list * dideta(c, V, params, mu)) ** 2),
+                                np.multiply(np.divide((c_tilde_list - c), (
+                                        1 - c)), (1 - (1 - c_lyte_list) * iredoi(c, V, params, mu) * dlnadlnc(1))))
+            dWdctilde = 1 / (1 - c) * np.multiply((1 / (1 - R_f_list * dideta(c, V, params, mu))), (
+                    1 - (1 - c_lyte_list) * iredoi(c, V, params, mu) * dlnadlnc(1)))
+            dWdclyte = np.multiply(iredoi(c, V, params, mu) * dlnadlnc(1) * (c_tilde_list - c) / (1 - c), (
+                    1 / (1 - R_f_list * dideta(c, V, params, mu))))
+        #    print("redcurrentfrac", iredoi(c, V, params, mu_c, c_lyte))
+        case "BV":
+            #         print("DWDRF", dideta(c, V, params, mu_c)/(1-R_f*dideta(c, V, params, mu_c))**2)
+            dWdRf = np.multiply(np.multiply(dideta(c, V, params, mu) / (1 - R_f_list * dideta(c, V, params, mu)) ** 2, (
+                    (c_tilde_list - c) / (1 - c)) ** 0.5), np.multiply(a_plus(c_lyte_list) ** 0.5, (
+                    1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1) * (1 - c_lyte_list) * dlnadlnc(1))))
+            dWdctilde = np.multiply(np.multiply(0.5 / np.sqrt((c_tilde_list - c) * (1 - c)), (
+                    1 / (1 - R_f_list * dideta(c, V, params, mu)))), np.multiply(a_plus(c_lyte_list) ** 0.5, (
+                    1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1) * (1 - c_lyte_list) * dlnadlnc(1))))
+            dWdclyte = np.multiply((np.multiply(np.divide(0.5 * a_plus(c_lyte_list) ** 0.5, c_lyte_list),
+                                                np.multiply(dlnadlnc(c_lyte_list),
+                                                            (1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1)
+                                                             * (1 - c_lyte_list) * dlnadlnc(1)))) - a_plus(
+                c_lyte_list) ** 0.5 * dideta(c, V, params, mu) / R(c, V, params, mu, 1)
+                                    * dlnadlnc(1)), np.multiply(((c_tilde_list - c) / (1 - c)) ** 0.5,
+                                                                (1 / (1 - R_f_list * dideta(c, V, params, mu)))))
+    output = np.stack((dWdRf, dWdctilde, dWdclyte), axis=2)
+    return output
 
 
 def dideta(c, mures, params, mu_c):
@@ -169,22 +165,19 @@ def helper_fun(eta_f, lmbda):
 def dhelper_fundetaf(eta_f, lmbda):
     """dhelper/detaf, useful for CIET senitivity"""
     return (eta_f * np.exp(-(lmbda - (eta_f ** 2 + lmbda ** (1 / 2) + 1) ** (1 / 2)) ** 2 / (4 * lmbda))) \
-           / ((np.exp(-eta_f) + 1) * (eta_f ** 2 + lmbda ** (1 / 2) + 1) ** (1 / 2)) - \
-           (lmbda ** (1 / 2) * np.pi ** (1 / 2) * np.exp(-eta_f) * (erf((lmbda - \
-                                                                         (eta_f ** 2 + lmbda ** (1 / 2) + 1) ** (
-                                                                                 1 / 2)) / (
-                                                                                2 * lmbda ** (1 / 2))) - 1)) / (
-                   np.exp(-eta_f) + 1) ** 2
+        / ((np.exp(-eta_f) + 1) * (eta_f ** 2 + lmbda ** (1 / 2) + 1) ** (1 / 2)) - \
+        (lmbda ** (1 / 2) * np.pi ** (1 / 2) * np.exp(-eta_f) * (erf((lmbda - \
+                                                                      (eta_f ** 2 + lmbda ** (1 / 2) + 1) ** (
+                                                                              1 / 2)) / (
+                                                                             2 * lmbda ** (1 / 2))) - 1)) / (
+                np.exp(-eta_f) + 1) ** 2
 
 
-def W_obj(phi_offset_c, c_c, c_a, phi, params_c, params_a, c_lyte):
+def W_obj(phi_offset_c, c_c, c_a, phi, params_c, params_a, mu_c, mu_a, c_lyte):
     # all in units of A/m^2
     """Solves for the phi_offset_c under the constant current constraint"""
-    return params_c['f'] * R(c_c, phi_offset_c, params_c, Tesla_NCA_Si, c_lyte) + params_a['f'] * R(c_a,
-                                                                                                    phi_offset_c + phi,
-                                                                                                    params_a,
-                                                                                                    Tesla_graphite,
-                                                                                                    c_lyte)
+    return params_c['f'] * R(c_c, phi_offset_c, params_c, mu_c, c_lyte) + params_a['f'] * R(c_a, phi_offset_c + phi,
+                                                                                            params_a, mu_a, c_lyte)
 
 
 def dlnadlnc(c_lyte):
@@ -194,13 +187,14 @@ def dlnadlnc(c_lyte):
 
 def a_plus(c_lyte):
     """Returns activity coefficient"""
-    return c_lyte ** (601 / 620) * np.exp(-1299 / 5000 - 24 / 31 * c_lyte ** (0.5) + 100164 / 96875 * c_lyte ** (1.5))
+    return np.multiply(c_lyte ** (601 / 620),
+                       np.exp(-1299 / 5000 - 24 / 31 * c_lyte ** (0.5) + 100164 / 96875 * c_lyte ** (1.5)))
 
 
-def current_magnitude(phi_offset_c, c_c, c_a, phi, params_c, params_a, c_lyte):
+def current_magnitude(phi_offset_c, c_c, c_a, phi, params_c, params_a, mu_c, mu_a, c_lyte):
     # all in units of A/m^2
     """Solves for the cell level current magnitude, useful for calculating the error of the y matrix"""
-    return np.abs(params_c['f'] * R(c_c, phi_offset_c, params_c, Tesla_NCA_Si, c_lyte))
+    return np.abs(params_c['f'] * R(c_c, phi_offset_c, params_c, mu_c, c_lyte))
 
 
 def R(c, mures, params, mu_c, c_lyte):
@@ -221,45 +215,17 @@ def R(c, mures, params, mu_c, c_lyte):
     return rxn
 
 
-def W_initial(c_c, c_a, mu, params_c, params_a, c_lyte):
+def W_initial(c_c, c_a, mu, params_c, params_a, mu_c, mu_a, c_lyte):
     """finds initial values of phi while keeping the current constraint for all mu values given"""
     mu_value = np.zeros(len(c_c))
     R_value = np.zeros(len(c_c))
     for i in range(len(c_c)):
-        #  opt = minimize(W_obj, -Tesla_NCA_Si(c_c[i], params_c["muR_ref"]), (c_c[i], c_a[i], mu[i], params_c, params_a, c_lyte))
-        opt = fsolve(W_obj, Tesla_NCA_Si(c_c[i], params_c["muR_ref"]),
-                     (c_c[i], c_a[i], mu[i], params_c, params_a, c_lyte))
+        opt = fsolve(W_obj, mu_c(c_c[i], params_c["muR_ref"]),
+                     (c_c[i], c_a[i], mu[i], params_c, params_a, mu_c, mu_a, c_lyte))
         mu_value[i] = opt[0]
-    #  mu_value[i] = opt.x
-    #  print("etac", Tesla_NCA_Si(c_c[i], params_c["muR_ref"]), Tesla_NCA_Si(c_c[i], params_c["muR_ref"])-mu_value[i]-np.log(c_c[i]), "Rxn", R(c_c[i], mu_value[i], params_c, Tesla_NCA_Si))
-    #  print("etaa", Tesla_graphite(c_a[i], params_a["muR_ref"]), Tesla_graphite(c_a[i], params_a["muR_ref"])-(mu_value[i]+mu[i])-np.log(c_a[i]), "Rxn", R(c_a[i], mu_value[i]+mu[i], params_a, Tesla_graphite))
 
-    R_value = current_magnitude(mu_value, c_c, c_a, mu, params_c, params_a, c_lyte)
+    R_value = current_magnitude(mu_value, c_c, c_a, mu, params_c, params_a, mu_c, mu_a, c_lyte)
     return mu_value, R_value
-
-def dWdtheta_averaged(deg_params, c_c, c_a, V_c, V_a, params_c, params_a):
-    """solves overall dW/dtheta_averaged (sensitivity matrix) from weighing equation
-    inputs are the min and max values of each degradation parameter, which are input slighlty different from the normal way"""
-    # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-    R_f_c = deg_params[:, 0:2]
-    c_tilde_c = deg_params[:, 2:4]
-    R_f_a = deg_params[:, 4:6]
-    c_tilde_a = deg_params[:, 6:8]
-    c_lyte = deg_params[:, 8:10]
-
-    dW_c_hat = dW_hat_averaged(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
-
-    # this is only from the cathode, so in the full cell it doesn't affect the anode rows
-    dW_c_hat = np.insert(dW_c_hat, [2, 2], np.zeros((2, N)), axis=0)
-    dW_a_hat = dW_hat_averaged(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
-    # this is only from the anode, so in the full cell it doesn't affect the cathode rows
-    dW_a_hat = np.insert(dW_a_hat, [0, 0], np.zeros((2, N)), axis=0)
-    # print("dW", dW_c_hat, dW_a_hat)
-    # we should have different mures
-    dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
-    f_c_a = params_c["f"] / params_a["f"]
-    dWdtheta = (dW_c_hat + dW_a_hat * f_c_a * dideta_c_a) / (1 + f_c_a * dideta_c_a)
-    return dWdtheta
 
 
 def Tesla_NCA_Si_OCV(y):
@@ -322,55 +288,36 @@ def get_OCV_from_muR(mu, muR_ref):
     return -1 / eokT * (mu - muR_ref)
 
 
-def delPhi(deg_params, c_c, c_a, V_c, V_a, params_c, params_a, icellbar):
-    """solves overall W from the linear weight equation"""
-    # (R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte) = deg_params
-    """Return delta Phi correction (Eq. 13) of HPPC paper to shift both anode and cathode potentials. we need to take
-    the average of dPhi over the degradation range, which means the average over Whats for cathode and anode"""
-    R_f_c = deg_params[:, 0:2]
-    c_tilde_c = deg_params[:, 2:4]
-    R_f_a = deg_params[:, 4:6]
-    c_tilde_a = deg_params[:, 6:8]
-    c_lyte = deg_params[:, 8:10]
-    av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
-    W_c_hat = av_W_R_f * av_W_c_tilde * av_W_c_lyte
-    av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
-    W_a_hat = av_W_R_f * av_W_c_tilde * av_W_c_lyte
-    # we should have different mures
-    dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
-    f_c_a = params_c["f"] / params_a["f"]
-    # set initial icell with no degradation
-    dPhi = (W_c_hat - W_a_hat) / (
-                params_a["f"] * dideta(c_a, V_a, params_a, Tesla_graphite) + params_c["f"] * dideta(c_c, V_c, params_c,
-                                                                                                    Tesla_NCA_Si)) * icellbar
-    return dPhi
-
-
 def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return idx
 
 
-# function that gets the max NCA diffusivity in range
+# function that gets the min NCA diffusivity in range
 def min_Dc(cmin, cmax, diff_data):
-    # maximum diffusivity at a certain point
-    Dc = np.nan * np.ones((len(cmin), ))
+    # minimum diffusivity at a certain point
+    Dc = np.nan * np.ones((len(cmin),))
     for k in range(len(cmin)):
         ind = np.argwhere(
-            ((diff_data[:, 0] > cmin[k]) & (diff_data[:, 0] < cmax[k])) | ((diff_data[:, 0] > cmax[k]) & (diff_data[:, 0] < cmin[k])))
+            ((diff_data[:, 0] > cmin[k]) & (diff_data[:, 0] < cmax[k])) | (
+                        (diff_data[:, 0] > cmax[k]) & (diff_data[:, 0] < cmin[k])))
         if len(ind) > 0:
             Dc[k] = np.min(diff_data[ind, 1] * diff_data[ind, 0])
         else:
             opt_ind = find_nearest(diff_data[:, 0], (cmin[k] + cmax[k]) / 2)
-            Dc[k] =  diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
+            Dc[k] = diff_data[opt_ind, 1] * diff_data[opt_ind, 0]
     return Dc
 
 def time_obj(alpha_t, c_min_c, c_max_c, c_min_a, c_max_a, params_c, params_a, R_value):
     """returns minimum objective function depending on time in hours"""
     R_value_prev = np.concatenate((np.array([0]), R_value[:-1]))
-    t_c = alpha_t * np.divide((np.abs(c_max_c - c_min_c) + np.abs(R_value_prev / (constants.e * params_c["p"]) * t_pulse)) * params_c['particle_size'] ** 2, min_Dc(c_min_c, c_max_c, params_c['diff']))
-    t_a = alpha_t * np.divide((np.abs(c_max_a - c_min_a) + np.abs(R_value_prev / (constants.e * params_a["p"]) * t_pulse)) * params_a['particle_size'] ** 2, min_Dc(c_min_a, c_max_a, params_a['diff']))
+    t_c = alpha_t * np.divide(
+        (np.abs(c_max_c - c_min_c) + np.abs(R_value_prev / (constants.e * params_c["p"]) * t_pulse)) * params_c[
+            'particle_size'] ** 2, min_Dc(c_min_c, c_max_c, params_c['diff']))
+    t_a = alpha_t * np.divide(
+        (np.abs(c_max_a - c_min_a) + np.abs(R_value_prev / (constants.e * params_a["p"]) * t_pulse)) * params_a[
+            'particle_size'] ** 2, min_Dc(c_min_a, c_max_a, params_a['diff']))
 
     return np.maximum(t_c, t_a) / 3600
 
@@ -458,53 +405,57 @@ c_a_t = params_a["c0"] - params_c["p"] / params_a["p"] * (c_c_t - params_c["c0"]
 # solve for the initial voltage pulses
 voltage_range = -Tesla_NCA_Si(c_c, params_c["muR_ref"]) + Tesla_graphite(c_a, params_a["muR_ref"]) + pulse_range
 
-mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, 1) # No degradation
+mu_range_c, R_value = W_initial(c_c, c_a, voltage_range, params_c, params_a, Tesla_NCA_Si, Tesla_graphite, 1) # No degradation
 mu_range_a = mu_range_c + voltage_range
 
 J2 = np.sum(time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c, params_a, R_value))
 # correct for voltage shift of mu_range_c and mu_range_a each with the deltaphi correction in Eq. 13 of hppc paper 1
-dPhi = delPhi(deg_params, c_c, c_a, mu_range_c, mu_range_a, params_c, params_a, R_value)
-mu_range_c = mu_range_c + dPhi
-mu_range_a = mu_range_a + dPhi
 V_c = mu_range_c
 V_a = mu_range_a
-R_f_c = deg_params[:, 0:2]
-c_tilde_c = deg_params[:, 2:4]
-R_f_a = deg_params[:, 4:6]
-c_tilde_a = deg_params[:, 6:8]
-c_lyte = deg_params[:, 8:10]
-dW_c_hat = dW_hat_averaged(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
+
+DOE_list = lhs(5, samples=num_meshpoints, criterion = 'center', random_state=42)
+dWdtheta_list = np.zeros((len(DOE_list), 1))
+
+R_f_c_list = (deg_params[:, 0] + (deg_params[:, 1] - deg_params[:, 0]) * DOE_list[:, 0]).reshape(-1, 1)
+c_tilde_c_list = (deg_params[:, 2] + (deg_params[:, 3] - deg_params[:, 2]) * DOE_list[:, 1]).reshape(-1, 1)
+R_f_a_list = (deg_params[:, 4] + (deg_params[:, 5] - deg_params[:, 4]) * DOE_list[:, 2]).reshape(-1, 1)
+c_tilde_a_list = (deg_params[:, 6] + (deg_params[:, 7] - deg_params[:, 6]) * DOE_list[:, 3]).reshape(-1, 1)
+c_lyte_list = (deg_params[:, 8] + (deg_params[:, 9] - deg_params[:, 8]) * DOE_list[:, 4]).reshape(-1, 1)
+
+dW_c_hat = dW_hat(c_c, mu_range_c, R_f_c_list, c_tilde_c_list, c_lyte_list, params_c, Tesla_NCA_Si)
+
 # this is only from the cathode, so in the full cell it doesn't affect the anode rows
-dW_c_hat = np.insert(dW_c_hat, [2, 2], np.zeros((2, N)), axis=0)
-dW_a_hat = dW_hat_averaged(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
+dW_c_hat = np.insert(dW_c_hat, (2, 2), 0, axis=2)
+dW_a_hat = dW_hat(c_a, mu_range_a, R_f_a_list, c_tilde_a_list, c_lyte_list, params_a, Tesla_graphite)
 # this is only from the anode, so in the full cell it doesn't affect the cathode rows
-dW_a_hat = np.insert(dW_a_hat, [0, 0], np.zeros((2, N)), axis=0)
+dW_a_hat = np.insert(dW_a_hat, (0, 0), 0, axis=2)
 # print("dW", dW_c_hat, dW_a_hat)
 # we should have different mures
-dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
+dideta_c_a = dideta(c_c, mu_range_c, params_c, Tesla_NCA_Si) / dideta(c_a, mu_range_a, params_a, Tesla_graphite)
 f_c_a = params_c["f"] / params_a["f"]
-dWdtheta = (dW_c_hat + dW_a_hat * f_c_a * dideta_c_a) / (1 + f_c_a * dideta_c_a)
-S = dWdtheta
-R_f_c = deg_params[:, 0:2]
-c_tilde_c = deg_params[:, 2:4]
-R_f_a = deg_params[:, 4:6]
-c_tilde_a = deg_params[:, 6:8]
-c_lyte = deg_params[:, 8:10]
-av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_c, V_c, R_f_c, c_tilde_c, c_lyte, params_c, Tesla_NCA_Si)
-W_c_hat = av_W_R_f*av_W_c_tilde*av_W_c_lyte
-av_W_R_f, av_W_c_tilde, av_W_c_lyte = W_hat_average(c_a, V_a, R_f_a, c_tilde_a, c_lyte, params_a, Tesla_graphite)
-W_a_hat = av_W_R_f*av_W_c_tilde*av_W_c_lyte
-# we should have different mures
-dideta_c_a = dideta(c_c, V_c, params_c, Tesla_NCA_Si) / dideta(c_a, V_a, params_a, Tesla_graphite)
-f_c_a = params_c["f"] / params_a["f"]
-W = (W_c_hat + W_a_hat * f_c_a * dideta_c_a) / (1 + f_c_a * dideta_c_a)
-W[np.isnan(W)] = 1e8
-W_range = W[0]
+dWdtheta = np.divide((dW_c_hat + dW_a_hat * f_c_a * dideta_c_a[:, :, None]), (1 + f_c_a * dideta_c_a[:, :, None]))
+
+W_range = W_hat(np.array([R_f_c_list, c_tilde_c_list, R_f_a_list, c_tilde_a_list, c_lyte_list]), c_c, c_a,
+                mu_range_c, mu_range_a, params_c, params_a, Tesla_NCA_Si, Tesla_graphite)
 err_y = np.abs(np.divide((1 - W_range), R_value))
-#rescale_current = R_value / np.max(R_value)
-#sigma_y_inv = np.diag(rescale_current ** 2)
-sigma_y_inv = np.diag(err_y ** (-2))
-#sigma_inv = np.dot(np.dot(Round_off(S, sig_digits), Round_off(sigma_y_inv, sig_digits)), Round_off(S, sig_digits).T)
-sigma_inv = np.dot(np.dot(S, sigma_y_inv), S.T)
-J1 = np.log(1/np.linalg.det(sigma_inv))
+for ind in range(num_meshpoints):
+    sigma_y_inv = np.diag(err_y[ind] ** (-2))
+    sigma_inv = np.dot(np.dot(dWdtheta[ind, :, :].T, sigma_y_inv), dWdtheta[ind, :, :])
+    if np.linalg.det(sigma_inv) != 0:
+        dWdtheta_list[ind] = 1 / np.linalg.det(sigma_inv)
+    else:
+        dWdtheta_list[ind] = np.exp(100)
+
+J1 = np.log(np.mean(dWdtheta_list[~np.isnan(dWdtheta_list)]))
 print("J1 = " + str(J1) + "\nJ2 = " + str(J2))
+
+params_matrix = np.zeros((N, 8))
+params_matrix[:,0] = c_c
+params_matrix[:,1] = c_a
+params_matrix[:,2] = get_OCV_from_muR(V_c, params_c["muR_ref"])
+params_matrix[:,3] = get_OCV_from_muR(V_a, params_a["muR_ref"])
+params_matrix[:,4] = params_matrix[:,2] - params_matrix[:,3]
+params_matrix[:,5] = params_matrix[:,2] - params_matrix[:,3] - V_values
+params_matrix[:,6] = V_values
+params_matrix[:,7] = time_obj(alpha_t, c_c_t[:-1], c_c_t[1:], c_a_t[:-1], c_a_t[1:], params_c, params_a, R_value)
+
