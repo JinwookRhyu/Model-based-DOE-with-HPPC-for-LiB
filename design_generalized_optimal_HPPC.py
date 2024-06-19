@@ -12,7 +12,7 @@ import time
 
 start_time = time.time()
 
-is_balanced_list = ["unbalanced", "unbalanced", "midbalanced", "midbalanced", "balanced", "balanced", "unbalanced", "unbalanced", "unbalanced", "unbalanced" "unbalanced"]
+is_balanced_list = ["unbalanced", "unbalanced", "midbalanced", "midbalanced", "balanced", "balanced", "unbalanced", "unbalanced", "unbalanced", "unbalanced", "unbalanced"]
 is_initial_high_list = [True, False, True, False, True, False, True, True, True, True, True]
 N_list = [5, 5, 5, 5, 5, 5, 6, 7, 8, 9, 10]
 
