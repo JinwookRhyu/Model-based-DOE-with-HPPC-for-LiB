@@ -14,6 +14,7 @@ is_transparent = False # Whether to plot transparent histogram
 is_balanced = False
 lw_med = 1
 lw_bound = 0.1
+I_err = 0.0003
 
 Standard = []
 General10_1 = []
@@ -23,14 +24,14 @@ General13_2 = []
 
 
 
-with (open(os.getcwd() + "/standard_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl", "rb")) as openfile:
+with (open(os.getcwd() + "/I_err_" + str(I_err) + "_standard_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced.pkl", "rb")) as openfile:
     while True:
         try:
             Standard.append(pickle.load(openfile))
         except EOFError:
             break
 
-with (open(os.getcwd() + "/generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_1.pkl",
+with (open(os.getcwd() + "/I_err_" + str(I_err) + "_generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_1.pkl",
            "rb")) as openfile:
     while True:
         try:
@@ -38,7 +39,7 @@ with (open(os.getcwd() + "/generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8
         except EOFError:
             break
 
-with (open(os.getcwd() + "/generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_2.pkl",
+with (open(os.getcwd() + "/I_err_" + str(I_err) + "_generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_2.pkl",
            "rb")) as openfile:
     while True:
         try:
@@ -46,7 +47,7 @@ with (open(os.getcwd() + "/generalized_optimal_N10_0.0_10.0_0.8_1.0_0.0_10.0_0.8
         except EOFError:
             break
 
-with (open(os.getcwd() + "/generalized_optimal_N13_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_1.pkl",
+with (open(os.getcwd() + "/I_err_" + str(I_err) + "_generalized_optimal_N13_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_1.pkl",
            "rb")) as openfile:
     while True:
         try:
@@ -54,7 +55,7 @@ with (open(os.getcwd() + "/generalized_optimal_N13_0.0_10.0_0.8_1.0_0.0_10.0_0.8
         except EOFError:
             break
 
-with (open(os.getcwd() + "/generalized_optimal_N13_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_2.pkl",
+with (open(os.getcwd() + "/I_err_" + str(I_err) + "_generalized_optimal_N13_0.0_10.0_0.8_1.0_0.0_10.0_0.8_1.0_0.8_1.0_unbalanced_2.pkl",
            "rb")) as openfile:
     while True:
         try:
@@ -188,11 +189,11 @@ Rel_Error_general13_2 = np.divide(Error_general13_2, True_params) * 100
 #####################################################################################################
 
 yaxes = [r'$R_{f,c}$', r'$\tilde{c}_c$', r'$R_{f,a}$', r'$\tilde{c}_a$', '$c_+$']
-fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(8,8))
+fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(16,8))
 axs = axs.ravel()
 
-ranges1 = [60, 2, 1, 1, 1]
-ranges2 = [100, 20, 5, 5, 5]
+ranges1 = [60, 3, 1, 1, 1]
+ranges2 = [100, 20, 4, 4, 4]
 for idx, ax in enumerate(axs):
     if idx < 5:
         ax.hist([np.abs(Rel_Error_standard[:, idx]).clip(min=0, max=ranges1[idx ]),
@@ -208,7 +209,12 @@ for idx, ax in enumerate(axs):
         ax.set_xlim(0, ranges1[idx])
         ax.set_ylim(0, 100)
 
-        ax2 = fig.add_axes([0.3 + 0.47 * (idx % 2), 0.77 - 0.33 * (np.floor(idx / 2)), 0.15, 0.15])
+        for tick in ax.xaxis.get_ticklabels():
+            tick.set_fontsize(20)
+        for tick in ax.yaxis.get_ticklabels():
+            tick.set_fontsize(20)
+
+        ax2 = fig.add_axes([0.15 + 0.3315 * (idx % 3), 0.72 - 0.51 * (np.floor(idx / 3)), 0.15, 0.20])
         ax2.hist([Rel_Uncertainty_standard[:, idx].clip(min=0, max=ranges2[idx ]),
                   Rel_Uncertainty_general10_1[:, idx].clip(min=0, max=ranges2[idx]),
                   Rel_Uncertainty_general10_2[:, idx].clip(min=0, max=ranges2[idx ]),
@@ -221,9 +227,9 @@ for idx, ax in enumerate(axs):
         ax2.set_ylim(0, 100)
 
         for tick in ax2.xaxis.get_ticklabels():
-            tick.set_fontsize(8)
+            tick.set_fontsize(15)
         for tick in ax2.yaxis.get_ticklabels():
-            tick.set_fontsize(8)
+            tick.set_fontsize(15)
         ax.minorticks_on()
         ax.grid(which='major', linestyle='-', linewidth='0.5')
         ax.grid(which='minor', linestyle=':', linewidth='0.5')
@@ -236,7 +242,7 @@ for idx, ax in enumerate(axs):
                 color=['black', 'red', 'lime', 'blue', 'orange'],
                 label=['Standard (N=10)', 'Optimal 1 (N=10)', 'Optimal 2 (N=10)', 'Optimal 3 (N=13)', 'Optimal 4 (N=13)'],
                 range=(0, 1))
-        ax.legend(loc='upper left')
+        ax.legend(loc='upper left', fontsize=22)
         ax.axis('off')
 
 fig3_name = "mcmc_unbalanced_histogram_3"
@@ -316,6 +322,55 @@ plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
 plt.savefig(fig3_name + ".png", dpi=300)
+plt.show()
+
+###############################################################################
+
+yaxes = [r'Predicted $R_{f,c}$', r'Predicted $\tilde{c}_c$', r'Predicted $R_{f,a}$', r'Predicted $\tilde{c}_a$', 'Predicted $c_+$']
+xaxes = [r'Actual $R_{f,c}$', r'Actual $\tilde{c}_c$', r'Actual $R_{f,a}$', r'Actual $\tilde{c}_a$', 'Actual $c_+$']
+fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(16,3))
+axs = axs.ravel()
+
+ranges1 = [0, 100, 0, 20, 0, 2, 0, 2, 0, 2]
+
+
+for idx, ax in enumerate(axs):
+    if idx < 5:
+        sort_idx = np.argsort(True_params[:, 0])
+        ax.plot(True_params[sort_idx, 0], Rel_Uncertainty_standard[sort_idx, idx], color='black', linewidth=lw_bound)
+
+        ax.plot(True_params[sort_idx, 0], Rel_Uncertainty_general10_1[sort_idx, idx], color='red', linewidth=lw_bound)
+
+        ax.plot(True_params[sort_idx, 0], Rel_Uncertainty_general10_2[sort_idx, idx], color='lime', linewidth=lw_bound)
+
+        ax.plot(True_params[sort_idx, 0], Rel_Uncertainty_general13_1[sort_idx, idx], color='blue', linewidth=lw_bound)
+
+        ax.plot(True_params[sort_idx, 0], Rel_Uncertainty_general13_2[sort_idx, idx], color='orange', linewidth=lw_bound)
+
+        #ax.text(-0.35, 1.0, string.ascii_lowercase[idx] + ")", transform=ax.transAxes,
+        #        size=25, weight='bold')
+        ax.set_ylabel(yaxes[idx])
+        ax.set_xlabel(xaxes[idx])
+        ax.set_xlim(0, 10)
+        ax.set_ylim(ranges1[2 * idx], ranges1[2 * idx + 1])
+        ax.minorticks_on()
+        ax.grid(which='major', linestyle='-', linewidth='0.5')
+        ax.grid(which='minor', linestyle=':', linewidth='0.5')
+
+    else:
+        ax.hist([np.array([100]), np.array([100]), np.array([100]), np.array([100]), np.array([100])], bins=20,
+                color=['black', 'red', 'lime', 'blue', 'orange'],
+                label=['Standard (N=10)', 'Optimal 1 (N=10)', 'Optimal 2 (N=10)', 'Optimal 3 (N=13)', 'Optimal 4 (N=13)'],
+                range=(0, 1))
+        ax.legend(loc='upper left')
+        ax.axis('off')
+
+fig8_name = "mcmc_unbalanced_line_Rfc"
+
+plt.style.use('seaborn-v0_8-muted')
+plt.tight_layout()
+plt.subplots_adjust(wspace=0.4, hspace=0.4)
+plt.savefig(fig8_name + ".png", dpi=300)
 plt.show()
 
 #####################################################################################################
