@@ -29,7 +29,10 @@ If you used this code, please cite this Software as:
 
 @article{rhyu2024optimum,
   title={Optimum Model-Based Design of Diagnostics Experiments (DOE) with Hybrid Pulse Power Characterization (HPPC) for Lithium-Ion Batteries},
+  
   author={Rhyu, Jinwook and Zhuang, Debbie and Bazant, Martin Z and Braatz, Richard D},
+  
   journal={Journal of The Electrochemical Society},
+  
   year={2024}
 }
