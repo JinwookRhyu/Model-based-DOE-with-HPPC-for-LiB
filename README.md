@@ -1,6 +1,6 @@
 This repository contains the software for [Optimum Model-Based Design of Diagnostics Experiments (DOE) with Hybrid Pulse Power Characterization (HPPC) for Lithium-Ion Batteries] which can be used for performing model-based DOE for optimizing the HPPC protocol. This software is associated with the paper 'Optimum Model-Based Design of Diagnostics Experiments (DOE) with Hybrid Pulse Power Characterization (HPPC) for Lithium-Ion Batteries' by Jinwook Rhyu et al.
 
-
+![alt text](https://github.com/JinwookRhyu/Model-based-DOE-with-HPPC-for-LiB/blob/main/graphical_abstract.jpg?raw=true)
 
 # Code
 
