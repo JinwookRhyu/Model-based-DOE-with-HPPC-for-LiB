@@ -28,12 +28,21 @@ This work was supported by the Toyota Research Institute through D3BATT: Center 
 If you used this code, please cite this Software as:
 
 @article{rhyu2024optimum,
+  
   title={Optimum Model-Based Design of Diagnostics Experiments (DOE) with Hybrid Pulse Power Characterization (HPPC) for Lithium-Ion Batteries},
+  
   author={Rhyu, Jinwook and Zhuang, Debbie and Bazant, Martin Z and Braatz, Richard D},
+  
   journal={Journal of The Electrochemical Society},
+  
   volume={171},
+  
   number={7},
+  
   pages={070544},
+  
   year={2024},
+  
   publisher={IOP Publishing}
+  
 }
