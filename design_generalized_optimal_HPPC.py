@@ -131,7 +131,7 @@ for n in range(len(N_list)):
                 dWdctilde = np.multiply(np.multiply(0.5 / np.sqrt((c_tilde_list - c) * (1 - c)), (
                             1 / (1 - R_f_list * dideta(c, V, params, mu)))), np.multiply(a_plus(c_lyte_list) ** 0.5, (
                                         1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1) * (1 - c_lyte_list) * dlnadlnc(1))))
-                dWdclyte = np.multiply((np.multiply(np.divide(0.5 * a_plus(c_lyte_list) ** 0.5, c_lyte_list), np.multiply(dlnadlnc(c_lyte_list), (1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1)
+                dWdclyte = np.multiply((np.multiply(np.divide(0.5 * a_plus(c_lyte_list) ** 0.5, c_lyte_list), np.multiply(dlnadlnc(1), (1 + dideta(c, V, params, mu) / R(c, V, params, mu, 1)
                             * (1 - c_lyte_list) * dlnadlnc(1)))) - a_plus(c_lyte_list) ** 0.5 * dideta(c, V, params, mu) / R(c, V, params, mu, 1)
                             * dlnadlnc(1)), np.multiply(((c_tilde_list - c) / (1 - c)) ** 0.5, (1 / (1 - R_f_list * dideta(c, V, params, mu)))))
         output = np.stack((dWdRf, dWdctilde, dWdclyte), axis=2)
@@ -194,7 +194,7 @@ for n in range(len(N_list)):
 
     def dlnadlnc(c_lyte):
         """Returns thermodynamic factor"""
-        return 601/620 - 24 / 31 * 0.5 * c_lyte ** (0.5) + 100164 / 96875 * 1.5 * c_lyte ** (1.5)
+        return 601/620 - 24 / 31 * 0.5 + 100164 / 96875 * 1.5
 
 
     def a_plus(c_lyte):
