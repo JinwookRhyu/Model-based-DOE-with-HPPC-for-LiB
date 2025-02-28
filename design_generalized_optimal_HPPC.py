@@ -194,7 +194,7 @@ for n in range(len(N_list)):
 
     def dlnadlnc(c_lyte):
         """Returns thermodynamic factor"""
-        return 601/620 - 24 / 31 * 0.5 + 100164 / 96875 * 1.5
+        return 601/620 * a_plus(c_lyte) / c_lyte - (24 / 31 * 0.5 * c_lyte ** (-0.5) + 100164 / 96875 * 1.5 * c_lyte ** 0.5) * a_plus(c_lyte)
 
 
     def a_plus(c_lyte):
