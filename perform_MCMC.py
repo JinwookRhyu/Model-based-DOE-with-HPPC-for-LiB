@@ -54,6 +54,34 @@ rho_s_a = 1.7438e28
 c_s_0_a = 0.0142
 c_s_0_c = 0.8595
 
+# rescaling factor to convert particle level current to electrode level
+f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
+f_a = L_a * (1 - poros_a) * P_L_a * 3 / r_a
+
+# rescaling factor to balance electrode concentrations
+p_c = L_c * (1 - poros_c) * P_L_c * rho_s_c
+p_a = L_a * (1 - poros_a) * P_L_a * rho_s_a
+
+# set reference chemical ptoentials
+muR_ref_c = -Tesla_NCA_Si(np.array([c_s_0_c]), 0)[0]
+muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
+if is_balanced:
+    # input parameters for electrodes
+    params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
+                'mu': Tesla_NCA_Si,
+                'muR_ref': muR_ref_c}
+    params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+                'mu': Tesla_graphite,
+                'muR_ref': muR_ref_a}
+else:
+    # input parameters for electrodes
+    params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
+                'mu': Tesla_NCA_Si,
+                'muR_ref': muR_ref_c}
+    params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
+                'mu': Tesla_graphite,
+                'muR_ref': muR_ref_a}
+
 # Lower and upper limits for degradation parameters in R_f_c, c_tilde_c, R_f_a, c_tilde_a, c_lyte order
 R_f_c_range = np.array([0, 10]) # Range for R_f_c (lb, ub)
 c_tilde_c_range = np.array([0.8, 1]) # Range for c_tilde_c (lb, ub)
@@ -97,34 +125,6 @@ for mm in range(1):
     niter = 10000
 
     plt.rcParams['figure.figsize'] = (20, 10)
-
-    # rescaling factor to convert particle level current to electrode level
-    f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
-    f_a = L_a * (1 - poros_a) * P_L_a * 3 / r_a
-
-    # rescaling factor to balance electrode concentrations
-    p_c = L_c * (1 - poros_c) * P_L_c * rho_s_c
-    p_a = L_a * (1 - poros_a) * P_L_a * rho_s_a
-
-    # set reference chemical ptoentials
-    muR_ref_c = -Tesla_NCA_Si(np.array([c_s_0_c]), 0)[0]
-    muR_ref_a = -Tesla_graphite(np.array([c_s_0_a]), 0)[0]
-    if is_balanced:
-        # input parameters for electrodes
-        params_c = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
-                    'mu': Tesla_NCA_Si,
-                    'muR_ref': muR_ref_c}
-        params_a = {'rxn_method': rxn_method, 'k0': 1, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
-                    'mu': Tesla_graphite,
-                    'muR_ref': muR_ref_a}
-    else:
-        # input parameters for electrodes
-        params_c = {'rxn_method': rxn_method, 'k0': 74, 'lambda': 5, 'f': f_c, 'p': p_c, 'c0': c_s_0_c,
-                    'mu': Tesla_NCA_Si,
-                    'muR_ref': muR_ref_c}
-        params_a = {'rxn_method': rxn_method, 'k0': 0.6, 'lambda': 8, 'f': f_a, 'p': p_a, 'c0': c_s_0_a,
-                    'mu': Tesla_graphite,
-                    'muR_ref': muR_ref_a}
 
     R_f_c = deg_params_true[0]
     c_tilde_c = deg_params_true[1]
