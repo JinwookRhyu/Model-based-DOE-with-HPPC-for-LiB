@@ -16,6 +16,39 @@ is_balanced_list = ["unbalanced", "unbalanced", "midbalanced", "midbalanced", "b
 is_initial_high_list = [True, False, True, False, True, False, True, True, True, True, True]
 N_list = [5, 5, 5, 5, 5, 5, 6, 7, 8, 9, 10]
 
+# set degradation parameters
+
+#load NCA/graphite diffusivities
+diffNCA = 10**np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter = ',')
+diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter = ',')
+
+# particle size
+r_c = 2e-7
+r_a = 16e-6
+# lengths
+L_c = 64e-6
+L_a = 83e-6
+# Volume loading percents of active material (volume fraction of solid that is active material)
+P_L_c = 0.7452
+P_L_a = 0.8277
+# Porosities (liquid volume fraction in each region)
+poros_c = 0.2298
+poros_a = 0.1473
+# width and thickness of electrodes
+width_a = 65e-3
+width_c = 63e-3
+thick_a = 86.5e-2
+thick_c = 85.9e-2
+
+# now call optimization funciton
+# site density of electrode active materials (sites/m^3)
+rho_s_c = 3.276e28
+rho_s_a = 1.7438e28
+
+# initial concentration of electrodes
+c_s_0_a = 0.0142
+c_s_0_c = 0.8595
+
 for n in range(len(N_list)):
 
     is_balanced = is_balanced_list[n]
@@ -396,40 +429,6 @@ for n in range(len(N_list)):
         print("Pulse at c = " + str(c_range) + " with dV = " + str(dV) + " resulted det = " + str(phi_ED))
 
         return phi_ED, R_value
-
-
-    # set degradation parameters
-
-    #load NCA/graphite diffusivities
-    diffNCA = 10**np.loadtxt('amin_diffusion/NCA_diffusion.txt', delimiter = ',')
-    diffgraphite = np.loadtxt('diffusion_carelli_et_all/graphite_diffusion.txt', delimiter = ',')
-
-    # particle size
-    r_c = 2e-7
-    r_a = 16e-6
-    # lengths
-    L_c = 64e-6
-    L_a = 83e-6
-    # Volume loading percents of active material (volume fraction of solid that is active material)
-    P_L_c = 0.7452
-    P_L_a = 0.8277
-    # Porosities (liquid volume fraction in each region)
-    poros_c = 0.2298
-    poros_a = 0.1473
-    # width and thickness of electrodes
-    width_a = 65e-3
-    width_c = 63e-3
-    thick_a = 86.5e-2
-    thick_c = 85.9e-2
-
-    # now call optimization funciton
-    # site density of electrode active materials (sites/m^3)
-    rho_s_c = 3.276e28
-    rho_s_a = 1.7438e28
-
-    # initial concentration of electrodes
-    c_s_0_a = 0.0142
-    c_s_0_c = 0.8595
 
     # rescaling factor to convert particle level current to electrode level
     f_c = L_c * (1 - poros_c) * P_L_c * 3 / r_c
