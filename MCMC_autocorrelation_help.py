@@ -5,6 +5,7 @@ import numpy as np
 from pyDOE3 import *
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, Matern, WhiteKernel, ConstantKernel as C
+from numba import njit
 
 def W_hat(c, V, R_f, c_tilde, c_lyte, params, mu_c):
     """Defines W_hat value for half-cell electrode:
@@ -357,11 +358,8 @@ def get_OCV_from_muR(mu, muR_ref):
     eokT = constants.e / (constants.k * 298)
     return -1 / eokT * (mu - muR_ref)
 
-def lnlike(theta, c_c, c_a, mu_c, mu_a, params_c, params_a, y, I_err, pulse_range):
+def lnlike(theta, c_c, c_a, mu_c, mu_a, mu_range_c, mu_range_a, params_c, params_a, y, I_err):
     """Logarithm of the likelihood function"""
-    voltage_range = -mu_c(y=c_c, muR_ref=params_c["muR_ref"]) + mu_a(y=c_a, muR_ref=params_a["muR_ref"]) + pulse_range
-    mu_range_c, R_value = W_initial(c_c=c_c, c_a=c_a, mu=voltage_range, params_c=params_c, params_a=params_a, mu_c=mu_c, mu_a=mu_a, c_lyte=1)
-    mu_range_a = mu_range_c + voltage_range
     # sigma_y should scale iwth the inverse of the current magnitude
     W_range = W(deg_params=theta, c_c=c_c, c_a=c_a, V_c=mu_range_c, V_a=mu_range_a, params_c=params_c, params_a=params_a, mu_c=mu_c, mu_a=mu_a)[0]
     err_y = I_err * np.abs(np.multiply(W_range, (1 - W_range)))
@@ -369,21 +367,20 @@ def lnlike(theta, c_c, c_a, mu_c, mu_a, params_c, params_a, y, I_err, pulse_rang
     LnLike = -0.5 * np.sum(np.divide(y-W_range, err_y) ** 2 + 2 * np.log(err_y))
     return LnLike
 
-def lnprior(theta, deg_params_bound):
-    """Constraints for the prior to be in the deg_param_bound"""
-    R_f_c = theta[0]
-    c_tilde_c = theta[1]
-    R_f_a = theta[2]
-    c_tilde_a = theta[3]
-    c_lyte = theta[4]
-    if (R_f_c > deg_params_bound[0][0]) & (R_f_a > deg_params_bound[2][0]) & (R_f_c < deg_params_bound[0][1]) & (R_f_a < deg_params_bound[2][1]) & (c_tilde_c > deg_params_bound[1][0]) & (c_tilde_c < deg_params_bound[1][1]) & (c_tilde_a > deg_params_bound[3][0]) & (c_tilde_a < deg_params_bound[3][1]) & (c_lyte > deg_params_bound[4][0]) & (c_lyte < deg_params_bound[4][1]):
-        return 0.0
-    else:
-        return -np.inf
+@njit
+def in_bounds(theta, lower, upper):
+    for i in range(theta.shape[0]):
+        if not (lower[i] < theta[i] < upper[i]):
+            return False
+    return True
 
-def lnprob(theta, c_c, c_a, mu_c, mu_a, params_c, params_a, y, I_err, pulse_range, deg_params_bound):
-    lp = lnprior(theta=theta, deg_params_bound=deg_params_bound)
-    return lp + lnlike(theta=theta, c_c=c_c, c_a=c_a, mu_c=mu_c, mu_a=mu_a, params_c=params_c, params_a=params_a, y=y, I_err=I_err, pulse_range=pulse_range) #recall if lp not -inf, its 0, so this just returns likelihood
+@njit
+def lnprior_numba(theta, lower, upper):
+    return 0.0 if in_bounds(theta, lower, upper) else -np.inf
+
+def lnprob(theta, c_c, c_a, mu_c, mu_a, mu_range_c, mu_range_a, params_c, params_a, y, I_err, deg_lower, deg_upper):
+    lp = lnprior_numba(theta=theta, lower=deg_lower, upper=deg_upper)
+    return lp + lnlike(theta=theta, c_c=c_c, c_a=c_a, mu_c=mu_c, mu_a=mu_a, mu_range_c=mu_range_c, mu_range_a=mu_range_a, params_c=params_c, params_a=params_a, y=y, I_err=I_err) #recall if lp not -inf, its 0, so this just returns likelihood
 
 # Automated windowing procedure following Sokal (1989)
 def auto_window(taus, c):
