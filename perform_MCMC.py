@@ -8,33 +8,44 @@ from MCMC_autocorrelation_help import lnprob, Tesla_graphite, Tesla_NCA_Si, get_
 import pickle
 import os
 
-suffix_save = "091725"
+suffix_save = "duplicate2_092725"
 
 n_processes = 12     # Number of cores for multiprocessing
 is_balanced = False  # False when using actual k0 values. True for hypothetical case where k0's are set to intentionally match the overpotential balance
 saveplot = True      # Whether to save the plots for MCMC simulations
-mode = "optimal"    # 'standard' for the conventional HPPC protocol. 'optimal' for the chosen optimal HPPC protocol.
+noisefree = False    # Whether to consider noise in W measurement for the MCMC simulations
+mode = "standard"    # 'standard' for the conventional HPPC protocol. 'optimal' for the chosen optimal HPPC protocol.
 I_err = 0.0005       # Measurement error in current due to battery cycler (0.0005 -> 0.05%)
 V_limit_high = 0.200 # Upper limit for the voltage pulse in [V]
 V_limit_low = 0.050  # Lower limit for the voltage pulse in [V]
 c_c_limit_high = 0.8 # Upper limit for the cathode filling fraction
 c_c_limit_low = 0.4  # Lower limit for the cathode filling fraction
-tpe = "D"            # Optimality criterion "A" / "D" / "E"
+tpe = "A"            # Optimality criterion "A" / "D" / "E"
 rxn_method = "CIET"  # 'CIET' for coupled ion electron transfer model. 'BV' for Butler-Volmer
 num_file = 0
 
 num_mcmc_samples = 100 # Number of samples within the degradation parameter space for MCMC simulations
 
 if mode == "standard": # Conventional HPPC protocol with fixed magnitude of voltage pulses applied at uniformly distributed c_c values
+    # Standard0_N10
     c_c = np.array([0.8, 0.8, 0.7, 0.7, 0.6, 0.6, 0.5, 0.5, 0.4, 0.4])
     dV = np.array([0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2, 0.2, -0.2])
+    # Standard0_N20
+    # c_c = np.array([0.8, 0.8, 0.8, 0.8, 0.7, 0.7, 0.7, 0.7, 0.6, 0.6, 0.6, 0.6, 0.5, 0.5, 0.5, 0.5, 0.4, 0.4, 0.4, 0.4])
+    # dV = np.array([0.2, 0.2, -0.2, -0.2, 0.2, 0.2, -0.2, -0.2, 0.2, 0.2, -0.2, -0.2, 0.2, 0.2, -0.2, -0.2, 0.2, 0.2, -0.2, -0.2])
 elif mode == "optimal": # The optimal HPPC protocol depends on the degradation parameter ranges
     # Optimal1_high_A_N10
     # c_c = np.array([0.8,   0.8,   0.8,   0.749, 0.749, 0.707, 0.572, 0.534, 0.534, 0.534])
     # dV = np.array([-0.05, -0.2,  -0.05, -0.2,   0.05, -0.2,   0.05, -0.05,  0.2,  -0.05])
+    # Optimal1_high_A_N20
+    # c_c = np.array([0.8, 0.8,  0.8, 0.8,  0.8, 0.8,  0.749, 0.749, 0.749, 0.749, 0.707, 0.707, 0.572, 0.572, 0.534, 0.534, 0.534, 0.534, 0.534, 0.534])
+    # dV = np.array([-0.05, -0.05, -0.2, -0.2, -0.05, -0.05, -0.2, -0.2,  0.05, 0.05, -0.2, -0.2,  0.05, 0.05, -0.05, -0.05, 0.2, 0.2, -0.05, -0.05])
     # Optimal1_low_A_N10
-    # c_c = np.array([0.4,   0.418, 0.5,   0.561, 0.591, 0.597, 0.684, 0.741, 0.799, 0.8  ])
-    # dV = np.array([ 0.05,  -0.051, -0.051,  0.199,  0.05,   0.199, -0.2,   -0.2,   -0.2,   -0.05 ])
+    # c_c = np.array([0.4, 0.418, 0.5,  0.561, 0.591, 0.597, 0.684, 0.741, 0.799, 0.8])
+    # dV = np.array([ 0.05, -0.051, -0.051, 0.199, 0.05, 0.199, -0.2, -0.2, -0.2, -0.05])
+    # Optimal1_low_A_N20
+    # c_c = np.array([0.4, 0.4, 0.418, 0.418, 0.5, 0.5, 0.561, 0.561, 0.591, 0.591, 0.597, 0.597, 0.684, 0.684, 0.741, 0.741, 0.799, 0.799, 0.8, 0.8])
+    # dV = np.array([0.05, 0.05, -0.051, -0.051, -0.051, -0.051, 0.199, 0.199, 0.05, 0.05, 0.199, 0.199, -0.2, -0.2, -0.2, -0.2, -0.2, -0.2, -0.05, -0.05])
     # Optimal2_high_A_N10_0.1_0.2
     # c_c = np.array([0.8,   0.8,   0.8,   0.731, 0.723, 0.723, 0.584, 0.536, 0.536, 0.536])
     # dV = np.array([-0.05, -0.2,  -0.05, -0.2,  -0.2,   0.05,  0.05,  0.2,  -0.05, -0.05])
@@ -42,11 +53,17 @@ elif mode == "optimal": # The optimal HPPC protocol depends on the degradation p
     # c_c = np.array([0.4,   0.401, 0.485, 0.554, 0.599, 0.681, 0.711, 0.735, 0.797, 0.797])
     # dV = np.array([0.05,  -0.053, -0.05,   0.197,  0.2,   -0.2,    0.05,  -0.199, -0.05,  -0.199])
     # Optimal1_high_D_N10
-    c_c = np.array([0.8,   0.8,   0.8,   0.67, 0.666, 0.4, 0.4, 0.4, 0.4, 0.4])
-    dV = np.array([0.05, -0.05,  -0.2, -0.2,   -0.2, -0.05, 0.2, 0.2, 0.05, -0.05])
+    # c_c = np.array([0.8,   0.8,   0.8,   0.67, 0.666, 0.4, 0.4, 0.4, 0.4, 0.4])
+    # dV = np.array([0.05, -0.05,  -0.2, -0.2,   -0.2, -0.05, 0.2, 0.2, 0.05, -0.05])
+    # Optimal1_high_D_N20
+    # c_c = np.array([0.8, 0.8,  0.8, 0.8,  0.8, 0.8,  0.67, 0.67, 0.666, 0.666, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4])
+    # dV = np.array([0.05, 0.05, -0.05, -0.05, -0.2, -0.2, -0.2, -0.2,  -0.2, -0.2, -0.05, -0.05, 0.2, 0.2, 0.2, 0.2, 0.05, 0.05, -0.05, -0.05])
     # Optimal1_low_D_N10
     # c_c = np.array([0.4, 0.4, 0.405, 0.405, 0.507, 0.68, 0.8, 0.8, 0.8, 0.8])
     # dV = np.array([0.05, -0.05, -0.05, 0.2, 0.2, -0.2, 0.05, 0.05, -0.2, -0.05])
+    # Optimal1_low_D_N20
+    # c_c = np.array([0.4, 0.4, 0.4, 0.4, 0.405, 0.405, 0.405, 0.405, 0.507, 0.507, 0.68, 0.68, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8])
+    # dV = np.array([0.05, 0.05, -0.05, -0.05, -0.05, -0.05, 0.2, 0.2, 0.2, 0.2, -0.2, -0.2, 0.05, 0.05, 0.05, 0.05, -0.2, -0.2, -0.05, -0.05])
     # Optimal2_high_D_N10_0.1_0.2
     # c_c = np.array([0.8,   0.8,   0.8,   0.678, 0.462, 0.403, 0.402, 0.401, 0.401, 0.401])
     # dV = np.array([0.05, -0.05, -0.2,  -0.2,   0.2,   0.2,  -0.05,  0.05,  0.05, -0.05])
@@ -176,9 +193,14 @@ for mm in range(num_mcmc_samples):
     mu_range_a = mu_range_c + voltage_range
     # Solve theoretical fitness W at the given degradation parameters
     y_true = W(deg_params=deg_params_true, c_c=c_c, c_a=c_a, V_c=mu_range_c, V_a=mu_range_a, params_c=params_c, params_a=params_a, mu_c=mu_c, mu_a=mu_a)
-    y = np.divide(R_value * y_true + R_value * y_true * I_err * rng.normal(0,1,len(R_value)), R_value)
+    if noisefree:
+        y = y_true
+    else:
+        y = np.divide(R_value * y_true + R_value * y_true * I_err * rng.normal(0,1,len(R_value)), R_value)
     # Parameters other than degradation parameter for MCMC simulation
-    data = (c_c, c_a, mu_c, mu_a, params_c, params_a, y, I_err, pulse_range, deg_params_bound)
+    deg_lower = np.array([deg_params_bound[i][0] for i in range(5)], dtype=np.float64)
+    deg_upper = np.array([deg_params_bound[i][1] for i in range(5)], dtype=np.float64)
+    data = (c_c, c_a, mu_c, mu_a, mu_range_c, mu_range_a, params_c, params_a, y, I_err, deg_lower, deg_upper)
 
     if __name__ == '__main__':
         pool = multiprocessing.Pool(processes=n_processes)
