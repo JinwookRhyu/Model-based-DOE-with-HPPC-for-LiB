@@ -23,12 +23,12 @@ is_balanced = False
 lw_med = 1
 lw_bound = 0.1
 
-show_params_low = np.array([0, 0.8, 0.1, 0.8, 0.8])
+show_params_low = np.array([0, 0.8, 0, 0.8, 0.8])
 show_params_high = np.array([0.2, 1, 0.2, 1, 1])
 
 xbar_histogram_uncertainty = 0.2
 xbar_histogram_error = 0.2
-suffix_save = "v2"
+suffix_save = "noisefree"
 
 # =========================
 # Declare datasets here
@@ -36,54 +36,82 @@ suffix_save = "v2"
 # =========================
 DATASETS = {
     "Standard": {
-        "file": r"standard0_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
+        "file": r"reduced_standard0_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
         "label": "Standard (N=10)",
         "color": "black",
     },
+    "Standard_duplicate2": {
+        "file": r"reduced_standard0_high_A_N20_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_duplicate2_092725.npz",
+        "label": "Standard (N=20) - DUP2",
+        "color": "dimgray",
+    },
+    "Standard_noisefree": {
+        "file": r"reduced_standard0_high_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_noisefree_091725.npz",
+        "label": "Standard (N=10) - NF",
+        "color": "lightgray",
+    },
     "Optimal_1": {
-        "file": r"optimal1_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
+        "file": r"reduced_optimal1_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
         "label": "Optimal/H/A (N=10)",
         "color": "red",
     },
-    "Optimal_2": {
-        "file": r"optimal2_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
-        "label": "Updated/H/A (N=10)",
-        "color": "lightcoral",
+    "Optimal_1_noisefree": {
+        "file": r"reduced_optimal1_high_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_noisefree_091725.npz",
+        "label": "Optimal/H/A (N=10) - NF",
+        "color": "lightpink",
     },
-    "Optimal_3": {
-        "file": r"optimal1_low_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
+    "Optimal_2": {
+        "file": r"reduced_optimal1_low_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
         "label": "Optimal/L/A (N=10)",
         "color": "blue",
     },
-    "Optimal_4": {
-        "file": r"optimal2_low_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
-        "label": "Updated/L/A (N=10)",
-        "color": "lightblue",
+    "Optimal_2_duplicate2": {
+        "file": r"reduced_optimal1_low_A_N20_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_duplicate2_092725.npz",
+        "label": "Optimal/L/A (N=20) - DUP2",
+        "color": "mediumslateblue",
     },
-    "Optimal_5": {
-        "file": r"optimal1_high_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
+    "Optimal_2_noisefree": {
+        "file": r"reduced_optimal1_low_A_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_noisefree_091725.npz",
+        "label": "Optimal/L/A (N=10) - NF",
+        "color": "violet",
+    },
+    "Optimal_3": {
+        "file": r"reduced_optimal1_high_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
         "label": "Optimal/H/D (N=10)",
         "color": "lime",
     },
-    "Optimal_6": {
-        "file": r"optimal2_high_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
-        "label": "Updated/H/D (N=10)",
-        "color": "lightgreen",
+    "Optimal_3_noisefree": {
+        "file": r"reduced_optimal1_high_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_noisefree_091725.npz",
+        "label": "Optimal/H/D (N=10) - NF",
+        "color": "palegreen",
     },
-    "Optimal_7": {
-        "file": r"optimal1_low_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
+    "Optimal_4": {
+        "file": r"reduced_optimal1_low_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
         "label": "Optimal/L/D (N=10)",
         "color": "orange",
     },
-    "Optimal_8": {
-        "file": r"optimal2_low_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_090225.npz",
-        "label": "Updated/L/D (N=10)",
-        "color": "moccasin",
+    "Optimal_4_noisefree": {
+        "file": r"reduced_optimal1_low_D_N10_0.0_0.2_0.8_1.0_0.0_0.2_0.8_1.0_0.8_1.0_unbalanced_noisefree_091725.npz",
+        "label": "Optimal/L/D (N=10) - NF",
+        "color": "wheat",
     },
 }
 
 # Preferred plotting order if present:
-ORDER = ["Standard", "Optimal_1", "Optimal_2", "Optimal_3", "Optimal_4", "Optimal_5", "Optimal_6", "Optimal_7", "Optimal_8"]
+ORDER = [
+         # "Standard",
+         # "Optimal_1",
+         # "Optimal_2",
+         # "Optimal_3",
+         # "Optimal_4",
+         # "Standard_duplicate2",
+         # "Optimal_2_duplicate2",
+         "Standard_noisefree",
+         "Optimal_1_noisefree",
+         "Optimal_2_noisefree",
+         "Optimal_3_noisefree",
+         "Optimal_4_noisefree",
+         ]
 
 # =========================
 # Load available datasets
@@ -97,22 +125,17 @@ for name, meta in DATASETS.items():
         print(f"[INFO] Skipping {name}: {e}")
 
 active = [k for k in ORDER if k in loaded]
-if "Standard" not in active:
-    raise RuntimeError("The 'Standard' dataset is required for True_params and baseline plots.")
-
-# Labels/colors in active order
 label_list = [DATASETS[k]["label"] for k in active]
 color_list = [DATASETS[k]["color"] for k in active]
 
-Standard = loaded["Standard"]
-num_mcmc_samples = len(Standard["True_params"])
+num_mcmc_samples = len(loaded[active[0]]["True_params"])
 
 # =========================
 # Pairplot figure (uses Standard truth)
 # =========================
 True_params = np.zeros((num_mcmc_samples, 5))
 for k in range(num_mcmc_samples):
-    True_params[k, :] = Standard["True_params"][k]
+    True_params[k, :] = loaded[active[0]]["True_params"][k]
 
 True_params_df = pd.DataFrame(
     True_params,
@@ -256,7 +279,7 @@ for idx, ax in enumerate(axs):
         ax.legend(loc='upper left', fontsize=11)
         ax.axis('off')
 
-fig3_name = f"mcmc_unbalanced_histogram{'_rel' if is_relative else ''}_{show_params_low[2]}_{show_params_high[2]}"
+fig3_name = f"mcmc_unbalanced_histogram{'_rel' if is_relative else ''}_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -300,7 +323,7 @@ for idx, ax in enumerate(axs):
         ax.legend(loc='upper left')
         ax.axis('off')
 
-fig3_name = f"mcmc_unbalanced_line_{show_params_low[2]}_{show_params_high[2]}"
+fig3_name = f"mcmc_unbalanced_line_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -332,7 +355,7 @@ for idx, ax in enumerate(axs):
     ax.grid(which='major', linestyle='-', linewidth='0.5')
     ax.grid(which='minor', linestyle=':', linewidth='0.5')
 
-fig8_name = f"mcmc_unbalanced_line_uncertainty_{show_params_low[2]}_{show_params_high[2]}"
+fig8_name = f"mcmc_unbalanced_line_uncertainty_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -363,7 +386,7 @@ for idx, ax in enumerate(axs):
     ax.grid(which='major', linestyle='-', linewidth='0.5')
     ax.grid(which='minor', linestyle=':', linewidth='0.5')
 
-fig8_name = f"mcmc_unbalanced_line_error_{show_params_low[2]}_{show_params_high[2]}"
+fig8_name = f"mcmc_unbalanced_line_error_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -416,7 +439,7 @@ for idx, ax in enumerate(axs):
         ax.legend(loc='upper left')
         ax.axis('off')
 
-fig3_name = f"mcmc_unbalanced_plot_rel_{show_params_low[2]}_{show_params_high[2]}"
+fig3_name = f"mcmc_unbalanced_plot_rel_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -468,7 +491,7 @@ for idx, ax in enumerate(axs):
         ax.legend(loc='upper left', fontsize=10)
         ax.axis('off')
 
-fig3_name = f"mcmc_unbalanced_plot_{show_params_low[2]}_{show_params_high[2]}"
+fig3_name = f"mcmc_unbalanced_plot_{show_params_low[2]}_{show_params_high[2]}_{suffix_save}"
 plt.style.use('seaborn-v0_8-muted')
 plt.tight_layout()
 plt.subplots_adjust(wspace=0.4, hspace=0.4)
